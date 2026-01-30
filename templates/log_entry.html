@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto bg-white rounded-lg shadow-md overflow-hidden md:max-w-lg">
+    <div class="md:flex">
+        <div class="w-full p-4">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">Log Activity</h2>
+                <a href="/dashboard" class="text-indigo-600 hover:text-indigo-800 text-sm">Cancel</a>
+            </div>
+
+            <form method="POST" action="/log/new">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="action_id">
+                        Action
+                    </label>
+                    <select
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        id="action_id" name="action_id" required>
+                        <option value="" disabled selected>Select an action...</option>
+                        {% for action in actions %}
+                        <option value="{{ action.id }}">{{ action.name }} (Target: {{ action.target_per_hour }}/hr)
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="men_count">
+                            Men Count
+                        </label>
+                        <input
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                            id="men_count" name="men_count" type="number" min="0" value="0">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="women_count">
+                            Women Count
+                        </label>
+                        <input
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                            id="women_count" name="women_count" type="number" min="0" value="0">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="quantity">
+                            Quantity (Towers)
+                        </label>
+                        <input
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                            id="quantity" name="quantity" type="number" min="0" value="0">
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="notes">
+                        Notes <span class="font-normal text-gray-500">(Optional)</span>
+                    </label>
+                    <textarea
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        id="notes" name="notes" placeholder="Any issues or comments..." rows="3"></textarea>
+                </div>
+
+                <div class="flex items-center justify-end">
+                    <button
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out"
+                        type="submit">
+                        Save Entry
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

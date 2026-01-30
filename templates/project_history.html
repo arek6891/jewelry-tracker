@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Project History</h1>
+        <a href="/dashboard" class="text-indigo-600 hover:text-indigo-800">Back to Dashboard</a>
+    </div>
+
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        {% if projects %}
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project
+                        Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Performance</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Completion Notes</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for item in projects %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-bold text-gray-900">{{ item.project.name }}</div>
+                        <div class="text-xs text-gray-500">{{ item.project.action.name }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">Start: {{ item.project.start_date.strftime('%Y-%m-%d') }}
+                        </div>
+                        <div class="text-sm text-gray-900">End: <span class="font-medium">{{
+                                item.project.completion_date.strftime('%Y-%m-%d') }}</span></div>
+                        <div class="text-xs text-gray-500">Deadline: {{ item.project.deadline.strftime('%Y-%m-%d') }}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">Target: {{ item.project.target_quantity }}</div>
+                        <div class="text-sm text-gray-900">Produced: {{ item.total_produced }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if item.on_time %}
+                        <span
+                            class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            On Time
+                        </span>
+                        {% else %}
+                        <span
+                            class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                            Delayed (+{{ item.delay_days }} days)
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500 max-w-xs break-words">
+                        <div class="space-y-2 max-h-40 overflow-y-auto">
+                            {% for note in item.notes_history %}
+                            <div class="bg-gray-50 p-2 rounded border border-gray-100">
+                                <p class="text-gray-800">{{ note.content }}</p>
+                                <p class="text-xs text-gray-400 mt-1">{{ note.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                                </p>
+                            </div>
+                            {% else %}
+                            <span class="text-gray-400 italic">No notes.</span>
+                            {% endfor %}
+
+                            <!-- Legacy Note Support -->
+                            {% if item.project.completion_notes and not item.notes_history %}
+                            <div class="bg-gray-50 p-2 rounded border border-gray-100">
+                                <p class="text-gray-800">{{ item.project.completion_notes }}</p>
+                                <p class="text-xs text-gray-400 mt-1">(Legacy Final Note)</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="p-6 text-center text-gray-500">
+            No completed projects yet.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

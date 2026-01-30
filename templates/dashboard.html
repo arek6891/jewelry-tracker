@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Dashboard</h1>
+        <div class="space-x-2">
+            <a href="/calendar"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded transition">
+                📅 Calendar
+            </a>
+            <a href="/projects/new"
+                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition">
+                + New Goal
+            </a>
+            <a href="/log/new" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">
+                + Log Entry
+            </a>
+            {% if user.role == 'admin' %}
+            <a href="/admin/benchmarks"
+                class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded transition">
+                ⚙️ Admin
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Alerts Section -->
+    {% if promoted_alerts %}
+    <div class="mb-8 space-y-4">
+        {% for alert in promoted_alerts %}
+        <div
+            class="p-4 rounded-md shadow-md {{ 'bg-red-100 text-red-700 border-l-4 border-red-500' if alert.level == 'critical' else 'bg-yellow-100 text-yellow-700 border-l-4 border-yellow-500' }}">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-bold">{{ 'CRITICAL ALERT' if alert.level == 'critical' else 'WARNING' }}</p>
+                    <p class="text-sm">{{ alert.message }}</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Active Projects / Goals -->
+    {% if projects %}
+    <div class="grid grid-cols-1 gap-6 mb-8">
+        <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold text-gray-800">Active Projects</h2>
+            <a href="/projects/history" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">View Archived
+                History</a>
+        </div>
+
+        {% for project in projects %}
+        <div class="bg-white rounded-lg shadow p-6 border border-gray-200">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800">{{ project.name }}</h3>
+                    <p class="text-sm text-gray-500">Deadline: <span
+                            class="font-bold {{ 'text-red-600' if project.deadline < now else '' }}">{{
+                            project.deadline.strftime('%Y-%m-%d') }}</span></p>
+                </div>
+                <div class="text-right space-x-1">
+                    <button data-project-id="{{ project.id }}" data-project-name="{{ project.name }}"
+                        onclick="openNotesModal(this)"
+                        class="bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-1 px-3 rounded transition">
+                        📝 Notes
+                    </button>
+                    <button data-project-id="{{ project.id }}" data-project-name="{{ project.name }}"
+                        onclick="openCompleteModal(this)"
+                        class="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-3 rounded transition">
+                        ✓ Finish
+                    </button>
+                </div>
+            </div>
+
+            <div class="mb-2 flex justify-between text-sm text-gray-600">
+                <span>Total Progress</span>
+                <span class="font-semibold">{{ project.current_quantity }} / {{ project.target_quantity }}</span>
+            </div>
+
+            <!-- Progress Bar -->
+            {% set progress_pct = (project.current_quantity / project.target_quantity * 100)|round|int %}
+            <div class="w-full bg-gray-200 rounded-full h-4 mb-6">
+                <div class="bg-blue-600 h-4 rounded-full text-xs text-white text-center leading-4"
+                    style="width: {{ [progress_pct, 100]|min }}%">{{ progress_pct }}%</div>
+            </div>
+
+            <!-- Visual Timeline (Mini Calendar) -->
+            <h4 class="text-sm font-bold text-gray-700 mb-2">Daily Timeline</h4>
+            <div class="flex space-x-2 overflow-x-auto pb-2">
+                {% for day in project.timeline %}
+                <div
+                    class="flex-shrink-0 w-16 text-center border rounded p-1 {{ 'bg-green-50 border-green-200' if day.is_done else ('bg-yellow-50 border-yellow-200' if day.is_history else 'bg-gray-50') }}">
+                    <div class="text-xs text-gray-500">{{ day.date.strftime('%d/%m') }}</div>
+                    {% if day.quantity > 0 %}
+                    <div class="text-sm font-bold text-indigo-700">{{ day.quantity }}</div>
+                    {% else %}
+                    <div class="text-sm text-gray-300">-</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Complete Project Modal -->
+<div id="completeModal" class="fixed inset-0 z-50 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3 text-center">
+            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modalTitle">Complete Project</h3>
+            <form id="completeForm" method="POST" action="/projects/complete" class="mt-2 text-left">
+                <input type="hidden" id="modalProjectId" name="project_id">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="notes">
+                        Final Notes / Reason for Delay
+                    </label>
+                    <textarea
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        id="notes" name="notes" rows="3"
+                        placeholder="e.g. Completed on time. / Delayed due to material shortage."></textarea>
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="closeCompleteModal()"
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                        Archive Project
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Notes Modal (New) -->
+<div id="notesModal" class="fixed inset-0 z-50 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg leading-6 font-medium text-gray-900" id="notesModalTitle">Project Notes</h3>
+
+            <!-- Notes List -->
+            <div id="notesList" class="mt-4 mb-4 max-h-60 overflow-y-auto text-left space-y-2 bg-gray-50 p-2 rounded">
+                <!-- Loaded via JS -->
+                <p class="text-gray-500 text-sm italic">Loading notes...</p>
+            </div>
+
+            <!-- Add Note Form -->
+            <div class="mt-2 text-left">
+                <input type="hidden" id="notesProjectId">
+                <div class="flex space-x-2">
+                    <input type="text" id="newNoteContent"
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        placeholder="Add a comment...">
+                    <button onclick="submitNote()"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">
+                        Send
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-4 text-right">
+                <button type="button" onclick="closeNotesModal()"
+                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Complete Modal
+    function openCompleteModal(btn) {
+        var id = btn.getAttribute('data-project-id');
+        var name = btn.getAttribute('data-project-name');
+        document.getElementById('modalProjectId').value = id;
+        document.getElementById('modalTitle').innerText = 'Complete: ' + name;
+        document.getElementById('completeModal').classList.remove('hidden');
+    }
+
+    function closeCompleteModal() {
+        document.getElementById('completeModal').classList.add('hidden');
+    }
+
+    // Notes Modal
+    function openNotesModal(btn) {
+        var id = btn.getAttribute('data-project-id');
+        var name = btn.getAttribute('data-project-name');
+        document.getElementById('notesProjectId').value = id;
+        document.getElementById('notesModalTitle').innerText = 'Notes: ' + name;
+        document.getElementById('notesModal').classList.remove('hidden');
+        loadNotes(id);
+    }
+
+    function closeNotesModal() {
+        document.getElementById('notesModal').classList.add('hidden');
+    }
+
+    function loadNotes(id) {
+        const list = document.getElementById('notesList');
+        list.innerHTML = '<p class="text-gray-500 text-sm italic">Loading...</p>';
+
+        fetch(`/projects/${id}/notes`)
+            .then(r => r.json())
+            .then(data => {
+                list.innerHTML = '';
+                if (data.notes.length === 0) {
+                    list.innerHTML = '<p class="text-gray-500 text-sm italic">No notes yet.</p>';
+                } else {
+                    data.notes.forEach(note => {
+                        const div = document.createElement('div');
+                        div.className = 'bg-white p-2 rounded shadow-sm border text-sm';
+                        div.innerHTML = `<p class="text-gray-800">${note.content}</p><p class="text-xs text-gray-400 mt-1">${note.timestamp}</p>`;
+                        list.appendChild(div);
+                    });
+                }
+                // Scroll to bottom
+                list.scrollTop = list.scrollHeight;
+            });
+    }
+
+    function submitNote() {
+        const id = document.getElementById('notesProjectId').value;
+        const content = document.getElementById('newNoteContent').value;
+        if (!content) return;
+
+        fetch(`/projects/${id}/notes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: content })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('newNoteContent').value = '';
+                    loadNotes(id);
+                }
+            });
+    }
+</script>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- Stat Card 1 -->
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
+        <h3 class="text-gray-500 text-sm font-medium uppercase tracking-wider">Total Towers Today</h3>
+        <p class="text-3xl font-bold text-gray-900 mt-2">{{ total_quantity }}</p>
+        <span class="text-gray-400 text-sm">{{ total_logs }} entries</span>
+    </div>
+
+    <!-- Stat Card 2 -->
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+        <h3 class="text-gray-500 text-sm font-medium uppercase tracking-wider">Total Staff</h3>
+        <p class="text-3xl font-bold text-gray-900 mt-2">{{ total_staff }}</p>
+        <span class="text-gray-400 text-sm">Men + Women</span>
+    </div>
+
+    <!-- Stat Card 3 -->
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-500">
+        <h3 class="text-gray-500 text-sm font-medium uppercase tracking-wider">Avg. Productivity</h3>
+        <p class="text-3xl font-bold text-gray-900 mt-2">
+            {% if total_staff > 0 %}
+            {{ (total_quantity / total_staff)|round(1) }}
+            {% else %}
+            0
+            {% endif %}
+        </p>
+        <span class="text-gray-400 text-sm">Towers / Person</span>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Chart Section -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">Weekly Output (Towers)</h3>
+        <div class="relative h-64 w-full">
+            <canvas id="weeklyChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-800">Recent Logs (Today)</h3>
+            <a href="/history"
+                class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded text-sm font-medium hover:bg-indigo-200 transition">View
+                All History</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Action</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for log in logs[:5] %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ log.timestamp.strftime('%H:%M') }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ log.action.name }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600">
+                            {{ log.quantity }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">
+                            No logs for today.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        fetch('/api/stats')
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('weeklyChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar', // Changed to bar for better volume visualization
+                    data: {
+                        labels: data.dates,
+                        datasets: [
+                            {
+                                label: 'Towers Produced',
+                                data: data.quantities,
+                                backgroundColor: 'rgba(79, 70, 229, 0.6)',
+                                borderColor: 'rgba(79, 70, 229, 1)',
+                                borderWidth: 1,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'Productivity (Towers/Person)',
+                                data: data.productivity,
+                                type: 'line',
+                                borderColor: 'rgb(234, 179, 8)', // Yellow
+                                tension: 0.3,
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: { display: true, text: 'Total Towers' }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                grid: {
+                                    drawOnChartArea: false,
+                                },
+                                title: { display: true, text: 'Productivity' }
+                            }
+                        }
+                    }
+                });
+            });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,37 @@
+# Dziennik Zmian (Changelog)
+
+## [1.0.0] - 2026-01-30
+### Dodano
+-   Inicjalizacja projektu w technologii Python (Flask) [Zastępstwo za Node.js].
+-   **Baza Danych**: Utworzenie tabel `User`, `Action`, `DailyLog` w SQLite.
+-   **Autoryzacja**: System logowania (Domyślne konto: `admin` / `admin`).
+-   **Dashboard**:
+    -   Liczniki: Total Quantity, Total Staff, Productivity.
+    -   Wykres: Tygodniowa produkcja (Bar chart) + Wydajność (Line chart).
+### Added
+- **Admin Benchmark Panel**:
+    - Admin-only route `/admin/benchmarks`.
+    - Interface to set "Target Productivity" (Towers/Day) for Men and Women.
+    - Regression Logic (Least Squares) to calculate "Actual Productivity" from historical logs.
+- **Project Notes System**:
+    - `ProjectNote` database model.
+    - "📝 Notes" button on Dashboard for active projects.
+    - Full conversation history in "Archived History" view.
+- **Copyright Footer**: Added legal copyright notice to `base.html`.
+- **Project History**:
+    - Dedicated page to view archived projects.
+    - Status tracking (On Time vs Delayed).
+
+### Changed
+- **Dashboard**: Added links to Admin Panel and simplified button layout.
+- **Database**: Added `benchmark_config` and `project_note` tables.
+
+### Fixed
+- **Mobile Responsiveness**: Improved table scrolling on small screens.
+- **Completion Modal**: Fixed z-index and event handling issues.
+-   **Formularz**: Dodanie pola `quantity` (ilość wież) do formularza logowania.
+-   **Historia**: Tabela wpisów z filtrowaniem (ostatnie wpisy).
+-   **Export**: Endpoint `/export` generujący raport Excel.
+
+### Zmieniono
+-   Aktualizacja schematu bazy danych (migracja): dodanie kolumny `quantity` do tabeli `daily_log` w celu śledzenia outputu.
