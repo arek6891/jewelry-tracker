@@ -20,6 +20,7 @@
 
 ### Added
 -   **Templates Tab**: New view in QC screen for users to see reference images without editing controls.
+-   **LAN Access**: Added `run_lan.py` and documentation to easily run the app on the local network (Intranet).
 
 ## [1.0.0] - 2026-01-30
 - **Admin Benchmark Panel**:
