@@ -8,7 +8,20 @@
 -   **Dashboard**:
     -   Liczniki: Total Quantity, Total Staff, Productivity.
     -   Wykres: Tygodniowa produkcja (Bar chart) + Wydajność (Line chart).
+### [1.0.1] - 2026-02-02
+### Changed
+-   **Dashboard**:
+    -   Restored "TV Mode" button to navbar.
+    -   Fixed layout issues where Alerts and Projects were overlapping.
+    -   Improved button alignment and responsive behavior.
+-   **Quality Check (QC)**:
+    -   Refactored `qc_project.html` to use Tabs ("New Inspection" vs "Reference Templates").
+    -   Separated upload functionality from read-only template viewing.
+
 ### Added
+-   **Templates Tab**: New view in QC screen for users to see reference images without editing controls.
+
+## [1.0.0] - 2026-01-30
 - **Admin Benchmark Panel**:
     - Admin-only route `/admin/benchmarks`.
     - Interface to set "Target Productivity" (Towers/Day) for Men and Women.

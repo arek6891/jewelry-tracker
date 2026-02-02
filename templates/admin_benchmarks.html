@@ -34,6 +34,21 @@
                         value="{{ config.target_women }}">
                 </div>
 
+                <hr class="my-6 border-gray-200">
+                <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Global Features</h3>
+
+                <div class="mb-6 flex items-center">
+                    <input type="checkbox" id="qa_enabled" name="qa_enabled"
+                        class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" {% if
+                        config.qa_enabled %}checked{% endif %}>
+                    <label class="ml-2 block text-gray-700 text-sm font-bold" for="qa_enabled">
+                        Enable Quality Assurance (QA) Workflow
+                    </label>
+                </div>
+                <p class="text-gray-500 text-xs mb-6 -mt-4 ml-6">
+                    If enabled, uploaded photos will require approval (Pending -> Approved/Rejected).
+                </p>
+
                 <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full transition">
                     Save Targets
                 </button>

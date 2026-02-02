@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production TV Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: white;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            transition: width 1s ease-in-out;
+        }
+    </style>
+</head>
+
+<body class="h-screen flex flex-col p-8">
+
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
+        <h1 class="text-4xl font-bold tracking-wider text-indigo-400">JEWELRY TOWER PRODUCTION</h1>
+        <div class="text-right">
+            <p id="currentDate" class="text-xl text-gray-400"></p>
+            <p id="currentTime" class="text-4xl font-mono"></p>
+        </div>
+    </header>
+
+    <!-- KPI Section -->
+    <div class="grid grid-cols-2 gap-8 mb-8">
+        <!-- Total Output -->
+        <div
+            class="bg-slate-800 rounded-2xl p-8 border-l-8 border-green-500 flex items-center justify-between shadow-2xl">
+            <div>
+                <h2 class="text-2xl text-gray-400 uppercase tracking-widest font-semibold">Today's Output</h2>
+                <p id="totalQty" class="text-8xl font-bold mt-2">0</p>
+            </div>
+            <div class="text-right">
+                <span class="text-6xl">📦</span>
+            </div>
+        </div>
+
+        <!-- Staff / Efficiency -->
+        <div
+            class="bg-slate-800 rounded-2xl p-8 border-l-8 border-yellow-500 flex items-center justify-between shadow-2xl">
+            <div>
+                <h2 class="text-2xl text-gray-400 uppercase tracking-widest font-semibold">Active Staff</h2>
+                <div class="flex items-baseline space-x-4">
+                    <p id="staffCount" class="text-8xl font-bold mt-2">0</p>
+                    <span class="text-2xl text-gray-500">People</span>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="text-6xl">👥</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Projects -->
+    <div class="flex-grow bg-slate-900 rounded-2xl p-8 border border-gray-700 overflow-y-auto">
+        <h2 class="text-3xl font-bold mb-6 text-gray-300">Active Goals Status</h2>
+
+        <div id="projectsContainer" class="space-y-8">
+            <!-- Project Items injected here -->
+        </div>
+    </div>
+
+    <script>
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('currentDate').innerText = now.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/tv_data');
+                const data = await response.json();
+
+                // Update KPIs
+                animateValue("totalQty", parseInt(document.getElementById('totalQty').innerText), data.total_qty, 1000);
+                document.getElementById('staffCount').innerText = data.staff_count;
+
+                // Update Projects
+                const container = document.getElementById('projectsContainer');
+                container.innerHTML = ''; // Re-render
+
+                if (data.projects.length === 0) {
+                    container.innerHTML = '<p class="text-2xl text-gray-500 text-center">No active goals.</p>';
+                } else {
+                    data.projects.forEach(p => {
+                        const colorClass = p.is_critical ? 'bg-red-600' : 'bg-green-600';
+                        const w = Math.min(p.percentage, 100);
+
+                        const html = `
+                            <div class="bg-slate-800 p-6 rounded-xl shadow-lg">
+                                <div class="flex justify-between items-end mb-2">
+                                    <h3 class="text-3xl font-bold text-white">${p.name}</h3>
+                                    <div class="text-right">
+                                        <span class="text-4xl font-bold ${p.is_critical ? 'text-red-400' : 'text-green-400'}">${p.current}</span>
+                                        <span class="text-xl text-gray-500"> / ${p.target}</span>
+                                    </div>
+                                </div>
+                                <div class="w-full bg-gray-700 rounded-full h-8 overflow-hidden">
+                                    <div class="${colorClass} h-8 rounded-full progress-bar text-white text-center font-bold leading-8" style="width: ${w}%">
+                                        ${p.percentage}%
+                                    </div>
+                                </div>
+                                <div class="mt-2 flex justify-between text-lg text-gray-400">
+                                    <span>Deadline: ${p.deadline}</span>
+                                    ${p.is_critical ? '<span class="text-red-500 font-bold uppercase">⚠️ Behind Schedule</span>' : '<span class="text-green-500">On Track</span>'}
+                                </div>
+                            </div>
+                        `;
+                        container.innerHTML += html;
+                    });
+                }
+            } catch (e) {
+                console.error("Fetch error", e);
+            }
+        }
+
+        // Animation helper
+        function animateValue(id, start, end, duration) {
+            if (start === end) return;
+            const range = end - start;
+            let current = start;
+            const increment = end > start ? 1 : -1;
+            const stepTime = Math.abs(Math.floor(duration / range));
+            const obj = document.getElementById(id);
+            const timer = setInterval(function () {
+                current += increment;
+                obj.innerText = current;
+                if (current == end) {
+                    clearInterval(timer);
+                }
+            }, stepTime > 0 ? stepTime : 10);
+            obj.innerText = end; // Fallback
+        }
+
+        // Init
+        updateTime();
+        setInterval(updateTime, 1000);
+        fetchData();
+        setInterval(fetchData, 60000); // Refresh every minute
+    </script>
+</body>
+
+</html>

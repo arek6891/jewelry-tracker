@@ -4,7 +4,7 @@
 <div class="container mx-auto px-4 py-8">
     <div class="flex justify-between items-center mb-8">
         <h1 class="text-3xl font-bold text-gray-800">Dashboard</h1>
-        <div class="space-x-2">
+        <div class="flex flex-wrap gap-2 items-center justify-end">
             <a href="/calendar"
                 class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded transition">
                 📅 Calendar
@@ -22,6 +22,9 @@
                 ⚙️ Admin
             </a>
             {% endif %}
+            <a href="/qc" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded transition">
+                ✅ Quality Check
+            </a>
         </div>
     </div>
 
@@ -40,7 +43,8 @@
                     </svg>
                 </div>
                 <div class="ml-3">
-                    <p class="text-sm font-bold">{{ 'CRITICAL ALERT' if alert.level == 'critical' else 'WARNING' }}</p>
+                    <p class="text-sm font-bold">{{ 'CRITICAL ALERT' if alert.level == 'critical' else 'WARNING' }}
+                    </p>
                     <p class="text-sm">{{ alert.message }}</p>
                 </div>
             </div>
@@ -54,7 +58,8 @@
     <div class="grid grid-cols-1 gap-6 mb-8">
         <div class="flex justify-between items-center">
             <h2 class="text-xl font-bold text-gray-800">Active Projects</h2>
-            <a href="/projects/history" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">View Archived
+            <a href="/projects/history" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">View
+                Archived
                 History</a>
         </div>
 
@@ -72,6 +77,11 @@
                         onclick="openNotesModal(this)"
                         class="bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-1 px-3 rounded transition">
                         📝 Notes
+                    </button>
+                    <button data-project-id="{{ project.id }}" data-project-name="{{ project.name }}"
+                        onclick="openPhotosModal(this)"
+                        class="bg-purple-500 hover:bg-purple-600 text-white text-xs font-bold py-1 px-3 rounded transition">
+                        📷 Templates
                     </button>
                     <button data-project-id="{{ project.id }}" data-project-name="{{ project.name }}"
                         onclick="openCompleteModal(this)"
@@ -112,286 +122,571 @@
         {% endfor %}
     </div>
     {% endif %}
-</div>
 
-<!-- Complete Project Modal -->
-<div id="completeModal" class="fixed inset-0 z-50 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div class="mt-3 text-center">
-            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modalTitle">Complete Project</h3>
-            <form id="completeForm" method="POST" action="/projects/complete" class="mt-2 text-left">
-                <input type="hidden" id="modalProjectId" name="project_id">
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="notes">
-                        Final Notes / Reason for Delay
-                    </label>
-                    <textarea
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                        id="notes" name="notes" rows="3"
-                        placeholder="e.g. Completed on time. / Delayed due to material shortage."></textarea>
+    <!-- Complete Project Modal -->
+    <div id="completeModal" class="fixed inset-0 z-50 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modalTitle">Complete Project</h3>
+                <form id="completeForm" method="POST" action="/projects/complete" class="mt-2 text-left">
+                    <input type="hidden" id="modalProjectId" name="project_id">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="notes">
+                            Final Notes / Reason for Delay
+                        </label>
+                        <textarea
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                            id="notes" name="notes" rows="3"
+                            placeholder="e.g. Completed on time. / Delayed due to material shortage."></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-2">
+                        <button type="button" onclick="closeCompleteModal()"
+                            class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                            class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                            Archive Project
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes Modal (New) -->
+    <div id="notesModal" class="fixed inset-0 z-50 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="notesModalTitle">Project Notes</h3>
+
+                <!-- Notes List -->
+                <div id="notesList"
+                    class="mt-4 mb-4 max-h-60 overflow-y-auto text-left space-y-2 bg-gray-50 p-2 rounded">
+                    <!-- Loaded via JS -->
+                    <p class="text-gray-500 text-sm italic">Loading notes...</p>
                 </div>
-                <div class="flex justify-end space-x-2">
-                    <button type="button" onclick="closeCompleteModal()"
+
+                <!-- Add Note Form -->
+                <div class="mt-2 text-left">
+                    <input type="hidden" id="notesProjectId">
+                    <div class="flex space-x-2">
+                        <input type="text" id="newNoteContent"
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                            placeholder="Add a comment...">
+                        <button onclick="submitNote()"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">
+                            Send
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-right">
+                    <button type="button" onclick="closeNotesModal()"
                         class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">
-                        Cancel
-                    </button>
-                    <button type="submit"
-                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
-                        Archive Project
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Notes Modal (New) -->
-<div id="notesModal" class="fixed inset-0 z-50 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div class="mt-3">
-            <h3 class="text-lg leading-6 font-medium text-gray-900" id="notesModalTitle">Project Notes</h3>
-
-            <!-- Notes List -->
-            <div id="notesList" class="mt-4 mb-4 max-h-60 overflow-y-auto text-left space-y-2 bg-gray-50 p-2 rounded">
-                <!-- Loaded via JS -->
-                <p class="text-gray-500 text-sm italic">Loading notes...</p>
-            </div>
-
-            <!-- Add Note Form -->
-            <div class="mt-2 text-left">
-                <input type="hidden" id="notesProjectId">
-                <div class="flex space-x-2">
-                    <input type="text" id="newNoteContent"
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                        placeholder="Add a comment...">
-                    <button onclick="submitNote()"
-                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">
-                        Send
+                        Close
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <div class="mt-4 text-right">
-                <button type="button" onclick="closeNotesModal()"
-                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">
-                    Close
-                </button>
+    <!-- Photos Modal -->
+    <div id="photosModal" class="fixed inset-0 z-50 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4" id="photosModalTitle">Project Media</h3>
+
+                <!-- Tabs -->
+                <div class="flex border-b border-gray-200 mb-4">
+                    <button onclick="switchTab('template')" id="tabTemplate"
+                        class="flex-1 py-2 px-4 text-center text-indigo-600 border-b-2 border-indigo-600 font-bold focus:outline-none">
+                        Reference Templates
+                    </button>
+                    <button onclick="switchTab('qc')" id="tabQC"
+                        class="flex-1 py-2 px-4 text-center text-gray-500 border-b-2 border-transparent font-medium hover:text-indigo-600 focus:outline-none">
+                        QC Inspections
+                    </button>
+                </div>
+
+                <!-- Upload Section (Templates Only - Admin) -->
+                <div id="uploadSection"
+                    class="mb-6 p-4 border-2 border-dashed border-gray-300 rounded-md text-center bg-gray-50 {{ 'hidden' if user.role != 'admin' else '' }}">
+                    <input type="hidden" id="photosProjectId">
+                    <input type="hidden" id="photosType" value="template">
+                    <input type="file" id="photoInput" multiple accept="image/*" class="hidden"
+                        onchange="handleFileSelect(this)">
+
+                    <p class="text-sm text-gray-600 mb-2">Upload Reference Templates (Admin Only)</p>
+                    <button onclick="document.getElementById('photoInput').click()"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded text-sm">
+                        Select Images
+                    </button>
+                    <div id="uploadPreview" class="mt-2 text-xs text-gray-500"></div>
+                    <button id="uploadBtn" onclick="uploadPhotos()"
+                        class="hidden mt-2 bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm">
+                        Confirm Upload
+                    </button>
+                </div>
+
+                <div id="qcInfo" class="hidden mb-4 text-center text-sm text-gray-500 bg-blue-50 p-2 rounded">
+                    Incoming photos from Quality Check tablets. Admins can review them here.
+                </div>
+
+                <!-- Gallery Grid -->
+                <div id="photoGallery"
+                    class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto p-2">
+                    <!-- Loaded via JS -->
+                </div>
+
+                <div class="mt-4 text-right">
+                    <button type="button" onclick="closePhotosModal()"
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">
+                        Close
+                    </button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-    // Complete Modal
-    function openCompleteModal(btn) {
-        var id = btn.getAttribute('data-project-id');
-        var name = btn.getAttribute('data-project-name');
-        document.getElementById('modalProjectId').value = id;
-        document.getElementById('modalTitle').innerText = 'Complete: ' + name;
-        document.getElementById('completeModal').classList.remove('hidden');
-    }
+    <script>
+        // Complete Modal
+        function openCompleteModal(btn) {
+            var id = btn.getAttribute('data-project-id');
+            var name = btn.getAttribute('data-project-name');
+            document.getElementById('modalProjectId').value = id;
+            document.getElementById('modalTitle').innerText = 'Complete: ' + name;
+            document.getElementById('completeModal').classList.remove('hidden');
+        }
 
-    function closeCompleteModal() {
-        document.getElementById('completeModal').classList.add('hidden');
-    }
+        function closeCompleteModal() {
+            document.getElementById('completeModal').classList.add('hidden');
+        }
 
-    // Notes Modal
-    function openNotesModal(btn) {
-        var id = btn.getAttribute('data-project-id');
-        var name = btn.getAttribute('data-project-name');
-        document.getElementById('notesProjectId').value = id;
-        document.getElementById('notesModalTitle').innerText = 'Notes: ' + name;
-        document.getElementById('notesModal').classList.remove('hidden');
-        loadNotes(id);
-    }
+        // Notes Modal
+        function openNotesModal(btn) {
+            var id = btn.getAttribute('data-project-id');
+            var name = btn.getAttribute('data-project-name');
+            document.getElementById('notesProjectId').value = id;
+            document.getElementById('notesModalTitle').innerText = 'Notes: ' + name;
+            document.getElementById('notesModal').classList.remove('hidden');
+            loadNotes(id);
+        }
 
-    function closeNotesModal() {
-        document.getElementById('notesModal').classList.add('hidden');
-    }
+        function closeNotesModal() {
+            document.getElementById('notesModal').classList.add('hidden');
+        }
 
-    function loadNotes(id) {
-        const list = document.getElementById('notesList');
-        list.innerHTML = '<p class="text-gray-500 text-sm italic">Loading...</p>';
+        function loadNotes(id) {
+            const list = document.getElementById('notesList');
+            list.innerHTML = '<p class="text-gray-500 text-sm italic">Loading...</p>';
 
-        fetch(`/projects/${id}/notes`)
-            .then(r => r.json())
-            .then(data => {
-                list.innerHTML = '';
-                if (data.notes.length === 0) {
-                    list.innerHTML = '<p class="text-gray-500 text-sm italic">No notes yet.</p>';
-                } else {
-                    data.notes.forEach(note => {
-                        const div = document.createElement('div');
-                        div.className = 'bg-white p-2 rounded shadow-sm border text-sm';
-                        div.innerHTML = `<p class="text-gray-800">${note.content}</p><p class="text-xs text-gray-400 mt-1">${note.timestamp}</p>`;
-                        list.appendChild(div);
-                    });
-                }
-                // Scroll to bottom
-                list.scrollTop = list.scrollHeight;
-            });
-    }
+            fetch(`/projects/${id}/notes`)
+                .then(r => r.json())
+                .then(data => {
+                    list.innerHTML = '';
+                    if (data.notes.length === 0) {
+                        list.innerHTML = '<p class="text-gray-500 text-sm italic">No notes yet.</p>';
+                    } else {
+                        data.notes.forEach(note => {
+                            const div = document.createElement('div');
+                            div.className = 'bg-white p-2 rounded shadow-sm border text-sm';
+                            div.innerHTML = `<p class="text-gray-800">${note.content}</p><p class="text-xs text-gray-400 mt-1">${note.timestamp}</p>`;
+                            list.appendChild(div);
+                        });
+                    }
+                    // Scroll to bottom
+                    list.scrollTop = list.scrollHeight;
+                });
+        }
 
-    function submitNote() {
-        const id = document.getElementById('notesProjectId').value;
-        const content = document.getElementById('newNoteContent').value;
-        if (!content) return;
+        function submitNote() {
+            const id = document.getElementById('notesProjectId').value;
+            const content = document.getElementById('newNoteContent').value;
+            if (!content) return;
 
-        fetch(`/projects/${id}/notes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: content })
-        })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    document.getElementById('newNoteContent').value = '';
-                    loadNotes(id);
-                }
-            });
-    }
-</script>
-
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <!-- Stat Card 1 -->
-    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
-        <h3 class="text-gray-500 text-sm font-medium uppercase tracking-wider">Total Towers Today</h3>
-        <p class="text-3xl font-bold text-gray-900 mt-2">{{ total_quantity }}</p>
-        <span class="text-gray-400 text-sm">{{ total_logs }} entries</span>
-    </div>
-
-    <!-- Stat Card 2 -->
-    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-        <h3 class="text-gray-500 text-sm font-medium uppercase tracking-wider">Total Staff</h3>
-        <p class="text-3xl font-bold text-gray-900 mt-2">{{ total_staff }}</p>
-        <span class="text-gray-400 text-sm">Men + Women</span>
-    </div>
-
-    <!-- Stat Card 3 -->
-    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-500">
-        <h3 class="text-gray-500 text-sm font-medium uppercase tracking-wider">Avg. Productivity</h3>
-        <p class="text-3xl font-bold text-gray-900 mt-2">
-            {% if total_staff > 0 %}
-            {{ (total_quantity / total_staff)|round(1) }}
-            {% else %}
-            0
-            {% endif %}
-        </p>
-        <span class="text-gray-400 text-sm">Towers / Person</span>
-    </div>
-</div>
-
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-    <!-- Chart Section -->
-    <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">Weekly Output (Towers)</h3>
-        <div class="relative h-64 w-full">
-            <canvas id="weeklyChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Recent Activity -->
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-bold text-gray-800">Recent Logs (Today)</h3>
-            <a href="/history"
-                class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded text-sm font-medium hover:bg-indigo-200 transition">View
-                All History</a>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Action</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty
-                        </th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for log in logs[:5] %}
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ log.timestamp.strftime('%H:%M') }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ log.action.name }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600">
-                            {{ log.quantity }}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">
-                            No logs for today.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        fetch('/api/stats')
-            .then(response => response.json())
-            .then(data => {
-                const ctx = document.getElementById('weeklyChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'bar', // Changed to bar for better volume visualization
-                    data: {
-                        labels: data.dates,
-                        datasets: [
-                            {
-                                label: 'Towers Produced',
-                                data: data.quantities,
-                                backgroundColor: 'rgba(79, 70, 229, 0.6)',
-                                borderColor: 'rgba(79, 70, 229, 1)',
-                                borderWidth: 1,
-                                yAxisID: 'y'
-                            },
-                            {
-                                label: 'Productivity (Towers/Person)',
-                                data: data.productivity,
-                                type: 'line',
-                                borderColor: 'rgb(234, 179, 8)', // Yellow
-                                tension: 0.3,
-                                yAxisID: 'y1'
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false,
-                        },
-                        scales: {
-                            y: {
-                                type: 'linear',
-                                display: true,
-                                position: 'left',
-                                title: { display: true, text: 'Total Towers' }
-                            },
-                            y1: {
-                                type: 'linear',
-                                display: true,
-                                position: 'right',
-                                grid: {
-                                    drawOnChartArea: false,
-                                },
-                                title: { display: true, text: 'Productivity' }
-                            }
-                        }
+            fetch(`/projects/${id}/notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: content })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('newNoteContent').value = '';
+                        loadNotes(id);
                     }
                 });
-            });
-    });
-</script>
-{% endblock %}
+        }
+
+
+        // --- Photos Modal ---
+        function openPhotosModal(btn) {
+            var id = btn.getAttribute('data-project-id');
+            var name = btn.getAttribute('data-project-name');
+            document.getElementById('photosProjectId').value = id;
+            document.getElementById('photosModalTitle').innerText = 'Photos: ' + name;
+            document.getElementById('photosModal').classList.remove('hidden');
+            loadPhotos(id);
+
+            // Reset upload state
+            document.getElementById('photoInput').value = '';
+            document.getElementById('uploadPreview').innerText = '';
+            document.getElementById('uploadBtn').classList.add('hidden');
+        }
+
+        function closePhotosModal() {
+            document.getElementById('photosModal').classList.add('hidden');
+        }
+
+        function handleFileSelect(input) {
+            const count = input.files.length;
+            const preview = document.getElementById('uploadPreview');
+            const uploadBtn = document.getElementById('uploadBtn');
+
+            if (count > 0) {
+                preview.innerText = `${count} file(s) selected`;
+                uploadBtn.classList.remove('hidden');
+            } else {
+                preview.innerText = '';
+                uploadBtn.classList.add('hidden');
+            }
+        }
+
+        function uploadPhotos() {
+            const input = document.getElementById('photoInput');
+            const projectId = document.getElementById('photosProjectId').value;
+            const type = document.getElementById('photosType') ? document.getElementById('photosType').value : 'template';
+
+            if (input.files.length === 0) {
+                alert('Please select files first');
+                return;
+            }
+
+            const formData = new FormData();
+            // Append all selected files
+            for (let i = 0; i < input.files.length; i++) {
+                formData.append('files[]', input.files[i]);
+            }
+
+            // Append type
+            formData.append('type', type);
+
+            // Upload
+            const uploadBtn = document.getElementById('uploadBtn');
+            const originalText = uploadBtn.innerText;
+            uploadBtn.innerText = 'Uploading...';
+            uploadBtn.disabled = true;
+
+            fetch(`/projects/${projectId}/images`, {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    uploadBtn.innerText = originalText;
+                    uploadBtn.disabled = false;
+
+                    if (data.success) {
+                        alert(data.message);
+                        // Reset input
+                        input.value = '';
+                        document.getElementById('uploadPreview').innerText = '';
+                        document.getElementById('uploadBtn').classList.add('hidden');
+                        // Reload photos
+                        loadPhotos(projectId);
+                    } else {
+                        alert('Upload failed: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    uploadBtn.innerText = originalText;
+                    uploadBtn.disabled = false;
+                    alert('Error uploading files');
+                });
+        }
+
+        let currentPhotoTab = 'template';
+
+        function openPhotosModal(btn) {
+            var id = btn.getAttribute('data-project-id');
+            document.getElementById('photosProjectId').value = id;
+
+            // Reset to template tab by default
+            switchTab('template');
+
+            document.getElementById('photosModal').classList.remove('hidden');
+        }
+
+        function switchTab(tab) {
+            currentPhotoTab = tab;
+            const projectId = document.getElementById('photosProjectId').value;
+            const uploadSection = document.getElementById('uploadSection');
+            const qcInfo = document.getElementById('qcInfo');
+            const tabTemplate = document.getElementById('tabTemplate');
+            const tabQC = document.getElementById('tabQC');
+
+            if (tab === 'template') {
+                // Styling
+                tabTemplate.className = 'flex-1 py-2 px-4 text-center text-indigo-600 border-b-2 border-indigo-600 font-bold focus:outline-none';
+                tabQC.className = 'flex-1 py-2 px-4 text-center text-gray-500 border-b-2 border-transparent font-medium hover:text-indigo-600 focus:outline-none';
+
+                // Content
+                if (uploadSection) uploadSection.classList.remove('hidden');
+                if (qcInfo) qcInfo.classList.add('hidden');
+                document.getElementById('photosType').value = 'template';
+            } else {
+                // Styling
+                tabTemplate.className = 'flex-1 py-2 px-4 text-center text-gray-500 border-b-2 border-transparent font-medium hover:text-indigo-600 focus:outline-none';
+                tabQC.className = 'flex-1 py-2 px-4 text-center text-indigo-600 border-b-2 border-indigo-600 font-bold focus:outline-none';
+
+                // Content
+                if (uploadSection) uploadSection.classList.add('hidden');
+                if (qcInfo) qcInfo.classList.remove('hidden');
+                document.getElementById('photosType').value = 'qc';
+            }
+
+            loadPhotos(projectId);
+        }
+
+        function loadPhotos(id) {
+            const gallery = document.getElementById('photoGallery');
+            const label = currentPhotoTab === 'template' ? 'templates' : 'inspections';
+            gallery.innerHTML = `<p class="col-span-full text-center text-gray-500">Loading ${label}...</p>`;
+
+            fetch(`/projects/${id}/images?type=${currentPhotoTab}`)
+                .then(r => r.json())
+                .then(data => {
+                    gallery.innerHTML = '';
+                    if (data.images.length === 0) {
+                        gallery.innerHTML = `<p class="col-span-full text-center text-gray-400 italic">No ${label} found.</p>`;
+                    } else {
+                        data.images.forEach(img => {
+                            const div = document.createElement('div');
+                            div.className = 'relative group';
+
+                            let overlay = ''; // Status pills / tower num
+                            let adminControls = '';
+
+                            if (currentPhotoTab === 'qc') {
+                                // Tower Number
+                                const tower = img.tower_number ? `<span class="absolute top-2 left-2 bg-indigo-600 text-white text-xs font-bold px-2 py-1 rounded shadow">#${img.tower_number}</span>` : '';
+
+                                // Status Pill checks
+                                let statusBadge = '';
+                                if (data.qa_enabled) {
+                                    if (img.status === 'approved') {
+                                        statusBadge = '<span class="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded shadow">✓ OK</span>';
+                                    } else if (img.status === 'rejected') {
+                                        statusBadge = '<span class="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded shadow">✗ REJ</span>';
+                                    } else {
+                                        statusBadge = '<span class="absolute top-2 right-2 bg-yellow-400 text-white text-xs font-bold px-2 py-1 rounded shadow">? PENDING</span>';
+                                    }
+
+                                    // Admin Controls
+                                    if (data.is_admin && (img.status === 'pending' || img.status === 'rejected')) {
+                                        adminControls = `
+                                        <div class="absolute bottom-0 left-0 right-0 p-2 bg-black bg-opacity-60 flex justify-center space-x-2 hidden group-hover:flex">
+                                            <button onclick="reviewImage(${img.id}, 'approved')" class="bg-green-500 hover:bg-green-600 text-white p-1 rounded rounded-full shadow" title="Approve">
+                                                ✓
+                                            </button>
+                                            <button onclick="rejectImage(${img.id})" class="bg-red-500 hover:bg-red-600 text-white p-1 rounded rounded-full shadow" title="Reject">
+                                                ✗
+                                            </button>
+                                        </div>
+                                    `;
+                                    }
+                                }
+                                overlay = tower + statusBadge;
+                            }
+
+                            // Image wrapper
+                            div.innerHTML = `
+                            <div class="relative aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-gray-200 shadow-sm hover:shadow-md transition">
+                                <a href="${img.url}" target="_blank">
+                                    <img src="${img.url}" alt="Photo" class="object-cover w-full h-full h-32 md:h-40 ${img.status === 'rejected' ? 'grayscale opacity-75' : ''}">
+                                </a>
+                                ${overlay}
+                                ${adminControls}
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">${img.uploaded_at}</p>
+                            ${img.rejection_reason ? `<p class="text-xs text-red-500 leading-tight mt-1">Reason: ${img.rejection_reason}</p>` : ''}
+                        `;
+                            gallery.appendChild(div);
+                        });
+                    }
+                });
+        }
+
+        function reviewImage(id, status, reason = null) {
+            fetch(`/api/images/${id}/review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: status, reason: reason })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        // Refresh gallery
+                        const projectId = document.getElementById('photosProjectId').value;
+                        loadPhotos(projectId);
+                    } else {
+                        alert('Error updating status');
+                    }
+                });
+        }
+
+        function rejectImage(id) {
+            const reason = prompt("Enter rejection reason (e.g. Bad quality, Not centered):");
+            if (reason) {
+                reviewImage(id, 'rejected', reason);
+            }
+        }
+    </script>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Stat Card 1 -->
+        <div class="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
+            <h3 class="text-gray-500 text-sm font-medium uppercase tracking-wider">Total Towers Today</h3>
+            <p class="text-3xl font-bold text-gray-900 mt-2">{{ total_quantity }}</p>
+            <span class="text-gray-400 text-sm">{{ total_logs }} entries</span>
+        </div>
+
+        <!-- Stat Card 2 -->
+        <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+            <h3 class="text-gray-500 text-sm font-medium uppercase tracking-wider">Total Staff</h3>
+            <p class="text-3xl font-bold text-gray-900 mt-2">{{ total_staff }}</p>
+            <span class="text-gray-400 text-sm">Men + Women</span>
+        </div>
+
+        <!-- Stat Card 3 -->
+        <div class="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-500">
+            <h3 class="text-gray-500 text-sm font-medium uppercase tracking-wider">Avg. Productivity</h3>
+            <p class="text-3xl font-bold text-gray-900 mt-2">
+                {% if total_staff > 0 %}
+                {{ (total_quantity / total_staff)|round(1) }}
+                {% else %}
+                0
+                {% endif %}
+            </p>
+            <span class="text-gray-400 text-sm">Towers / Person</span>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Chart Section -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Weekly Output (Towers)</h3>
+            <div class="relative h-64 w-full">
+                <canvas id="weeklyChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-800">Recent Logs (Today)</h3>
+                <a href="/history"
+                    class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded text-sm font-medium hover:bg-indigo-200 transition">View
+                    All History</a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Time
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Action</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Qty
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for log in logs[:5] %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ log.timestamp.strftime('%H:%M') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ log.action.name }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600">
+                                {{ log.quantity }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">
+                                No logs for today.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    const ctx = document.getElementById('weeklyChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'bar', // Changed to bar for better volume visualization
+                        data: {
+                            labels: data.dates,
+                            datasets: [
+                                {
+                                    label: 'Towers Produced',
+                                    data: data.quantities,
+                                    backgroundColor: 'rgba(79, 70, 229, 0.6)',
+                                    borderColor: 'rgba(79, 70, 229, 1)',
+                                    borderWidth: 1,
+                                    yAxisID: 'y'
+                                },
+                                {
+                                    label: 'Productivity (Towers/Person)',
+                                    data: data.productivity,
+                                    type: 'line',
+                                    borderColor: 'rgb(234, 179, 8)', // Yellow
+                                    tension: 0.3,
+                                    yAxisID: 'y1'
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                mode: 'index',
+                                intersect: false,
+                            },
+                            scales: {
+                                y: {
+                                    type: 'linear',
+                                    display: true,
+                                    position: 'left',
+                                    title: { display: true, text: 'Total Towers' }
+                                },
+                                y1: {
+                                    type: 'linear',
+                                    display: true,
+                                    position: 'right',
+                                    grid: {
+                                        drawOnChartArea: false,
+                                    },
+                                    title: { display: true, text: 'Productivity' }
+                                }
+                            }
+                        }
+                    });
+                });
+        });
+    </script>
+    {% endblock %}

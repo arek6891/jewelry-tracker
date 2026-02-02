@@ -21,6 +21,9 @@
             <a href="/" class="text-xl font-bold tracking-tight">💎 Jewelry Tracker</a>
             <div>
                 {% if current_user.is_authenticated %}
+                <a href="/tv" target="_blank"
+                    class="mr-4 bg-purple-500 hover:bg-purple-600 px-3 py-1 rounded transition font-bold text-xs uppercase tracking-wider">📺
+                    TV Mode</a>
                 <span class="mr-4">Welcome, {{ current_user.username }}</span>
                 <a href="/logout" class="bg-indigo-700 hover:bg-indigo-800 px-3 py-1 rounded transition">Logout</a>
                 {% endif %}

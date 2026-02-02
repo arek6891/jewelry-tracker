@@ -7,12 +7,15 @@ import io
 import pandas as pd
 import numpy as np
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 # Initialize Flask App
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'dev-secret-key-jewelry-tracker' # Change for production
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///jewelry.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'static/uploads/projects'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max limit
 
 db = SQLAlchemy(app)
 login_manager = LoginManager()
@@ -74,10 +77,22 @@ class ProjectNote(db.Model):
     content = db.Column(db.String(500), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
+class ProjectImage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project_goal.id'), nullable=False)
+    filename = db.Column(db.String(200), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default='pending') # pending, approved, rejected
+    rejection_reason = db.Column(db.String(200), nullable=True)
+    reviewed_by = db.Column(db.Integer, nullable=True) # User ID
+    image_type = db.Column(db.String(20), default='qc') # 'template' or 'qc'
+    tower_number = db.Column(db.String(50), nullable=True) # For QC images
+
 class BenchmarkConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     target_men = db.Column(db.Float, default=50.0)
     target_women = db.Column(db.Float, default=45.0)
+    qa_enabled = db.Column(db.Boolean, default=False)
     last_updated = db.Column(db.DateTime, default=datetime.utcnow)
 
 @login_manager.user_loader
@@ -378,7 +393,63 @@ def get_stats():
         'productivity': daily_stats['productivity'].fillna(0).tolist()
     })
 
-@app.route('/calendar', methods=['GET', 'POST'])
+
+@app.route('/tv')
+@login_required
+def tv_dashboard():
+    return render_template('tv_dashboard.html')
+
+@app.route('/api/tv_data')
+def get_tv_data():
+    # Public endpoint (or secure if needed) for TV polling
+    # Calculate Today's stats
+    today = datetime.utcnow().date()
+    logs_today = DailyLog.query.filter(DailyLog.date >= today).all()
+    
+    total_qty = sum(l.quantity for l in logs_today)
+    
+    # Calculate current staff count (most recent logs today?)
+    # or just sum of all logs (assuming 1 log per person/group? No, logs are events)
+    # Approximation: Sum of max men+women seen in any single log? 
+    # Better: sum of distinct staff inputs? NO, user inputs "men_count" manually.
+    # Let's take the sum of staff from all logs today vs just "active"?
+    # For simplicity: Sum of staff in all logs today (might count same people twice if multiple logs)
+    # Maybe showing "Active Projects" is better.
+    
+    current_staff = sum(l.men_count + l.women_count for l in logs_today)
+    
+    # Active Projects Status
+    active_projects = ProjectGoal.query.filter_by(status='active').all()
+    projects_data = []
+    
+    for p in active_projects:
+        # Calculate progress
+        logs = DailyLog.query.filter(DailyLog.action_id == p.action_id, DailyLog.date >= p.start_date).all()
+        current = sum(l.quantity for l in logs)
+        pct = int((current / p.target_quantity * 100)) if p.target_quantity > 0 else 0
+        
+        # Calculate health
+        # Ideal progress based on time?
+        # Simple health check: Deadline
+        days_left = (p.deadline - today).days
+        is_critical = days_left < 1 and current < p.target_quantity
+        
+        projects_data.append({
+            'name': p.name,
+            'current': current,
+            'target': p.target_quantity,
+            'percentage': pct,
+            'deadline': p.deadline.strftime('%Y-%m-%d'),
+            'is_critical': is_critical
+        })
+        
+    return jsonify({
+        'date': today.strftime('%Y-%m-%d'),
+        'total_qty': total_qty,
+        'staff_count': current_staff,
+        'projects': projects_data
+    })
+
 @login_required
 def calendar_view():
     if request.method == 'POST':
@@ -534,6 +605,113 @@ def project_notes(project_id):
 
     return jsonify({'notes': notes_data})
 
+# --- Project Images ---
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+
+@app.route('/projects/<int:project_id>/images', methods=['GET', 'POST'])
+@login_required
+def project_images(project_id):
+    project = ProjectGoal.query.get_or_404(project_id)
+    
+    # Optional filter: ?type=template or ?type=qc
+    filter_type = request.args.get('type')
+    
+    if request.method == 'POST':
+        # Check permissions for template
+        image_type = request.form.get('type', 'qc')
+        tower_number = request.form.get('tower_number')
+        
+        if image_type == 'template' and current_user.role != 'admin':
+            return jsonify({'success': False, 'message': 'Only admins can upload templates'}), 403
+            
+        if 'files[]' not in request.files:
+            return jsonify({'success': False, 'message': 'No file part'}), 400
+            
+        files = request.files.getlist('files[]')
+        saved_images = []
+        
+        for file in files:
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                unique_name = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{filename}"
+                os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_name))
+                
+                image = ProjectImage(
+                    project_id=project.id, 
+                    filename=unique_name,
+                    image_type=image_type,
+                    tower_number=tower_number
+                )
+                db.session.add(image)
+                saved_images.append(unique_name)
+                
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'{len(saved_images)} images uploaded'})
+
+    # GET images
+    query = ProjectImage.query.filter_by(project_id=project.id)
+    if filter_type:
+        query = query.filter_by(image_type=filter_type)
+        
+    images = query.order_by(ProjectImage.uploaded_at.desc()).all()
+    
+    # Check if QA is enabled
+    config = BenchmarkConfig.query.first()
+    qa_enabled = config.qa_enabled if config else False
+    
+    images_data = [{
+        'id': img.id,
+        'url': url_for('static', filename=f'uploads/projects/{img.filename}'),
+        'uploaded_at': img.uploaded_at.strftime('%Y-%m-%d %H:%M'),
+        'status': img.status,
+        'rejection_reason': img.rejection_reason,
+        'image_type': img.image_type,
+        'tower_number': img.tower_number
+    } for img in images]
+    
+    return jsonify({
+        'images': images_data,
+        'qa_enabled': qa_enabled,
+        'is_admin': current_user.role == 'admin' # Pass admin status to frontend
+    })
+
+@app.route('/qc')
+@login_required
+def qc_launch():
+    projects = ProjectGoal.query.filter_by(status='active').all()
+    return render_template('qc_launch.html', projects=projects)
+
+@app.route('/qc/<int:project_id>')
+@login_required
+def qc_project(project_id):
+    project = ProjectGoal.query.get_or_404(project_id)
+    return render_template('qc_project.html', project=project)
+
+@app.route('/api/images/<int:image_id>/review', methods=['POST'])
+@login_required
+def review_image(image_id):
+    if current_user.role != 'admin':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+    image = ProjectImage.query.get_or_404(image_id)
+    data = request.json
+    
+    status = data.get('status')
+    reason = data.get('reason')
+    
+    if status not in ['approved', 'rejected']:
+        return jsonify({'success': False, 'message': 'Invalid status'}), 400
+        
+    image.status = status
+    image.rejection_reason = reason if status == 'rejected' else None
+    image.reviewed_by = current_user.id
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
 # --- Admin Benchmarks ---
 def calculate_actual_productivity():
     # Fetch all logs with meaningful data
@@ -587,9 +765,10 @@ def admin_benchmarks():
         try:
             config.target_men = float(request.form.get('target_men'))
             config.target_women = float(request.form.get('target_women'))
+            config.qa_enabled = 'qa_enabled' in request.form
             config.last_updated = datetime.utcnow()
             db.session.commit()
-            flash('Benchmarks updated successfully.')
+            flash('Benchmarks & Settings updated successfully.')
         except ValueError:
             flash('Invalid input values.')
             
@@ -635,9 +814,42 @@ def init_db():
              cursor.execute("ALTER TABLE project_goal ADD COLUMN completion_notes TEXT")
              conn.commit()
              
+             
         # Check ProjectNote Link
         
+        # Check ProjectImage
+        try:
+             cursor.execute("SELECT * FROM project_image LIMIT 1")
+             # Check for new columns
+             cursor.execute("PRAGMA table_info(project_image)")
+             cols = [info[1] for info in cursor.fetchall()]
+             if 'status' not in cols:
+                 print("Migrating: Adding status to project_image")
+                 cursor.execute("ALTER TABLE project_image ADD COLUMN status TEXT DEFAULT 'pending'")
+                 cursor.execute("ALTER TABLE project_image ADD COLUMN rejection_reason TEXT")
+                 cursor.execute("ALTER TABLE project_image ADD COLUMN reviewed_by INTEGER")
+                 conn.commit()
+                 
+             if 'image_type' not in cols:
+                 print("Migrating: Adding image_type/tower_number to project_image")
+                 cursor.execute("ALTER TABLE project_image ADD COLUMN image_type TEXT DEFAULT 'qc'")
+                 cursor.execute("ALTER TABLE project_image ADD COLUMN tower_number TEXT")
+                 conn.commit()
+        except:
+             print("Migrating database: adding project_image table...")
+             # Let SQLAlchemy handle it by calling create_all again or manually
+             # db.create_all() catches new tables, but let's be safe
+             pass 
+        
+        
         # Check Benchmark Config
+        cursor.execute("PRAGMA table_info(benchmark_config)")
+        cols = [info[1] for info in cursor.fetchall()]
+        if 'qa_enabled' not in cols:
+             print("Migrating: Adding qa_enabled to benchmark_config")
+             cursor.execute("ALTER TABLE benchmark_config ADD COLUMN qa_enabled BOOLEAN DEFAULT 0")
+             conn.commit()
+
         if not BenchmarkConfig.query.first():
             default_benchmark = BenchmarkConfig(target_men=55.0, target_women=45.0)
             db.session.add(default_benchmark)

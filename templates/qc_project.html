@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <div class="flex items-center justify-between mb-6">
+        <a href="/qc" class="text-indigo-600 font-bold">&larr; Back</a>
+        <h1 class="text-2xl font-bold text-gray-800">{{ project.name }}</h1>
+        <div class="w-10"></div>
+    </div>
+
+    <!-- TABS Navigation -->
+    <div class="flex border-b border-gray-200 mb-6">
+        <button onclick="switchQCTab('inspection')" id="tabInspection"
+            class="flex-1 py-3 text-center font-bold text-indigo-600 border-b-4 border-indigo-600 focus:outline-none transition">
+            New Inspection
+        </button>
+        <button onclick="switchQCTab('templates')" id="tabTemplates"
+            class="flex-1 py-3 text-center font-medium text-gray-500 border-b-4 border-transparent hover:text-indigo-600 focus:outline-none transition">
+            Reference Templates
+        </button>
+    </div>
+
+    <!-- VIEW: NEW INSPECTION -->
+    <div id="viewInspection" class="space-y-8">
+        <!-- Upload Card -->
+        <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+            <h2 class="text-xl font-bold text-gray-700 mb-4 text-center">New Inspection</h2>
+
+            <div class="space-y-6">
+                <!-- Tower Number -->
+                <div>
+                    <label for="towerNumber"
+                        class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Tower Number /
+                        ID</label>
+                    <input type="number" id="towerNumber"
+                        class="shadow-sm border-2 border-indigo-200 rounded-lg w-full py-4 px-4 text-4xl text-center font-bold text-indigo-900 focus:outline-none focus:border-indigo-500 placeholder-indigo-100"
+                        placeholder="000" inputmode="numeric">
+                </div>
+
+                <!-- Camera Input -->
+                <div>
+                    <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden"
+                        onchange="handleFile(this)">
+                    <button onclick="triggerCamera()"
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-6 px-4 rounded-xl shadow-md transition flex flex-col items-center justify-center space-y-2">
+                        <span class="text-4xl">📷</span>
+                        <span class="text-xl">Take Photo</span>
+                    </button>
+                </div>
+
+                <!-- Upload Preview / Confirm -->
+                <div id="previewSection" class="hidden bg-gray-50 p-4 rounded-lg text-center border border-gray-200">
+                    <p id="fileName" class="text-sm text-gray-500 mb-2"></p>
+                    <button id="uploadBtn" onclick="uploadQC()"
+                        class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-4 rounded-lg shadow-md text-xl">
+                        Confirm Upload
+                    </button>
+                    <button onclick="resetForm()" class="mt-4 text-red-500 text-sm font-bold">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Uploads List -->
+        <div>
+            <h3 class="text-lg font-bold text-gray-600 mb-4 px-2">Recent Uploads</h3>
+            <div id="recentGallery" class="space-y-4">
+                <!-- Items injected here -->
+                <p class="text-center text-gray-400 italic">Loading...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW: RESOURCED TEMPLATES -->
+    <div id="viewTemplates" class="hidden">
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+            <p class="text-blue-700 text-sm">
+                These are reference photos showing how the product should look. <br>
+                <strong>Read-only mode.</strong>
+            </p>
+        </div>
+
+        <div id="templateGallery" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Templates injected here -->
+            <p class="text-center text-gray-400 italic col-span-full">Loading templates...</p>
+        </div>
+    </div>
+
+</div>
+
+<input type="hidden" id="projectId" value="{{ project.id }}">
+
+<script>
+    // --- TABS LOGIC ---
+    function switchQCTab(tab) {
+        const viewInsp = document.getElementById('viewInspection');
+        const viewTemp = document.getElementById('viewTemplates');
+        const btnInsp = document.getElementById('tabInspection');
+        const btnTemp = document.getElementById('tabTemplates');
+
+        if (tab === 'inspection') {
+            viewInsp.classList.remove('hidden');
+            viewTemp.classList.add('hidden');
+
+            btnInsp.className = 'flex-1 py-3 text-center font-bold text-indigo-600 border-b-4 border-indigo-600 focus:outline-none transition';
+            btnTemp.className = 'flex-1 py-3 text-center font-medium text-gray-500 border-b-4 border-transparent hover:text-indigo-600 focus:outline-none transition';
+        } else {
+            viewInsp.classList.add('hidden');
+            viewTemp.classList.remove('hidden');
+
+            btnInsp.className = 'flex-1 py-3 text-center font-medium text-gray-500 border-b-4 border-transparent hover:text-indigo-600 focus:outline-none transition';
+            btnTemp.className = 'flex-1 py-3 text-center font-bold text-indigo-600 border-b-4 border-indigo-600 focus:outline-none transition';
+
+            loadTemplates(); // Load when tab active
+        }
+    }
+
+
+    // --- INSPECTION LOGIC ---
+    function triggerCamera() {
+        const tower = document.getElementById('towerNumber').value;
+        if (!tower) {
+            alert("Please enter TOWER NUMBER first!");
+            document.getElementById('towerNumber').focus();
+            return;
+        }
+        document.getElementById('cameraInput').click();
+    }
+
+    function handleFile(input) {
+        if (input.files.length > 0) {
+            document.getElementById('previewSection').classList.remove('hidden');
+            document.getElementById('fileName').innerText = 'Selected: ' + input.files[0].name;
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+    }
+
+    function resetForm() {
+        document.getElementById('cameraInput').value = '';
+        document.getElementById('previewSection').classList.add('hidden');
+    }
+
+    function uploadQC() {
+        const input = document.getElementById('cameraInput');
+        const tower = document.getElementById('towerNumber').value;
+        const projectId = document.getElementById('projectId').value;
+
+        if (input.files.length === 0) return;
+        if (!tower) return alert("Tower Number missing");
+
+        const formData = new FormData();
+        formData.append('files[]', input.files[0]);
+        formData.append('type', 'qc');
+        formData.append('tower_number', tower);
+
+        const btn = document.getElementById('uploadBtn');
+        const oldText = btn.innerText;
+        btn.innerText = 'Uploading...';
+        btn.disabled = true;
+
+        fetch(`/projects/${projectId}/images`, {
+            method: 'POST',
+            body: formData
+        })
+            .then(r => r.json())
+            .then(data => {
+                btn.innerText = oldText;
+                btn.disabled = false;
+
+                if (data.success) {
+                    resetForm();
+                    document.getElementById('towerNumber').value = '';
+                    loadRecent();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(e => {
+                alert('Upload failed');
+                btn.innerText = oldText;
+                btn.disabled = false;
+            });
+    }
+
+    function loadRecent() {
+        const projectId = document.getElementById('projectId').value;
+        const container = document.getElementById('recentGallery');
+
+        fetch(`/projects/${projectId}/images?type=qc`)
+            .then(r => r.json())
+            .then(data => {
+                container.innerHTML = '';
+                if (data.images.length === 0) {
+                    container.innerHTML = '<p class="text-center text-gray-400 italic">No inspections yet.</p>';
+                } else {
+                    data.images.forEach(img => {
+                        let statusColor = 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                        let icon = '⏳';
+                        if (img.status === 'approved') {
+                            statusColor = 'bg-green-100 text-green-800 border-green-200';
+                            icon = '✅';
+                        } else if (img.status === 'rejected') {
+                            statusColor = 'bg-red-100 text-red-800 border-red-200';
+                            icon = '❌';
+                        }
+
+                        // Add DELETE button for own uploads (simplified: any user for now or admin)
+                        // API doesn't support delete yet, so we skip it or add later.
+
+                        const html = `
+                        <div class="flex items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+                            <div class="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-100 mr-4">
+                                <a href="${img.url}" target="_blank">
+                                    <img src="${img.url}" class="h-full w-full object-cover">
+                                </a>
+                            </div>
+                            <div class="flex-grow">
+                                <h4 class="font-bold text-gray-800">Tower #${img.tower_number || '?'}</h4>
+                                <p class="text-xs text-gray-500">${img.uploaded_at}</p>
+                                ${img.rejection_reason ? `<p class="text-xs text-red-600 font-bold mt-1">${img.rejection_reason}</p>` : ''}
+                            </div>
+                            <div class="ml-2 flex flex-col items-end space-y-1">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor}">
+                                    ${icon} ${img.status.toUpperCase()}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                        container.innerHTML += html;
+                    });
+                }
+            });
+    }
+
+    // --- TEMPLATE LOGIC ---
+    let templatesLoaded = false;
+    function loadTemplates() {
+        if (templatesLoaded) return;
+
+        const projectId = document.getElementById('projectId').value;
+        const container = document.getElementById('templateGallery');
+        container.innerHTML = '<p class="text-center text-gray-400 italic col-span-full">Loading templates...</p>';
+
+        fetch(`/projects/${projectId}/images?type=template`)
+            .then(r => r.json())
+            .then(data => {
+                container.innerHTML = '';
+                templatesLoaded = true;
+
+                if (data.images.length === 0) {
+                    container.innerHTML = '<p class="text-center text-gray-400 italic col-span-full">No reference templates available.</p>';
+                } else {
+                    data.images.forEach(img => {
+                        const html = `
+                        <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
+                             <a href="${img.url}" target="_blank">
+                                <img src="${img.url}" class="w-full h-48 object-cover">
+                            </a>
+                            <div class="p-2 bg-gray-50 text-center">
+                                <span class="text-xs text-gray-500">Reference Image</span>
+                            </div>
+                        </div>
+                        `;
+                        container.innerHTML += html;
+                    });
+                }
+            });
+    }
+
+    // Init
+    loadRecent();
+</script>
+{% endblock %}
