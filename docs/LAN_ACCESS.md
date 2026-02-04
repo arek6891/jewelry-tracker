@@ -39,3 +39,19 @@ If devices cannot connect:
 Your computer's IP address (`192.168.x.x`) might change if you restart your router. 
 -   Always check the screen when you start `run_lan.py` to see the current address.
 -   (Advanced) Ask your IT admin to set a "Static IP" for your computer.
+
+## 3. Uruchamianie Ręczne (Terminal)
+Jeśli chcesz uruchomić aplikację bezpośrednio z terminala (np. w Antigravity lub PowerShell), wykonaj poniższe kroki. Pozwoli to widzieć logi na bieżąco.
+
+1.  **Otwórz Terminal** (W Antigravity lub systemowy PowerShell).
+2.  **Przejdź do folderu projektu** (skopiuj i wklej):
+    ```powershell
+    cd "c:\Users\asobczyk\OneDrive - Logwin AG\Bee_app_displays"
+    ```
+3.  **Uruchom aplikację**:
+    ```powershell
+    python run_lan.py
+    ```
+4.  **Zatrzymywanie**:
+    -   Aby zatrzymać serwer, kliknij w terminalu i naciśnij konbinację klawiszy `CTRL + C`.
+

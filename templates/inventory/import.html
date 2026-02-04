@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-lg">
+    <div class="mb-8">
+        <a href="/inventory" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">&larr; Back to
+            Inventory</a>
+    </div>
+
+    <div
+        class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 border border-gray-200 dark:border-gray-700 theme-transition">
+        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6 text-center">📥 Import Stock</h1>
+
+        <p class="text-gray-600 dark:text-gray-400 mb-6 text-center">
+            Upload an Excel file (.xlsx) with columns: <br>
+            <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">SKU</code>,
+            <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">Quantity</code>,
+            <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">Name</code> (optional)
+        </p>
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-6">
+            <div class="flex items-center justify-center w-full">
+                <label for="dropzone-file"
+                    class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-bray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600">
+                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                        <svg aria-hidden="true" class="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                            </path>
+                        </svg>
+                        <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Click to
+                                upload</span> or drag and drop</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">XLSX or XLS (MAX. 16MB)</p>
+                    </div>
+                    <input id="dropzone-file" name="file" type="file" class="hidden" accept=".xlsx, .xls" required />
+                </label>
+            </div>
+
+            <button type="submit"
+                class="w-full text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-3 text-center transition">
+                Upload & Update Stock
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('dropzone-file');
+    const dropzoneText = document.querySelector('label[for="dropzone-file"] p.text-sm');
+
+    fileInput.addEventListener('change', function (e) {
+        if (e.target.files.length > 0) {
+            const fileName = e.target.files[0].name;
+            dropzoneText.innerHTML = `<span class="font-semibold text-green-600 dark:text-green-400">Selected:</span> ${fileName}`;
+        }
+    });
+
+    // Drag and drop visual feedback
+    const dropzoneLabel = document.querySelector('label[for="dropzone-file"]');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropzoneLabel.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzoneLabel.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzoneLabel.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+        dropzoneLabel.classList.add('bg-gray-100', 'dark:bg-gray-600', 'border-indigo-500');
+    }
+
+    function unhighlight(e) {
+        dropzoneLabel.classList.remove('bg-gray-100', 'dark:bg-gray-600', 'border-indigo-500');
+    }
+
+    dropzoneLabel.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        fileInput.files = files;
+
+        if (files.length > 0) {
+            const fileName = files[0].name;
+            dropzoneText.innerHTML = `<span class="font-semibold text-green-600 dark:text-green-400">Selected:</span> ${fileName}`;
+        }
+    }
+</script>
+{% endblock %}

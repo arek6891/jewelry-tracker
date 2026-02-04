@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="mb-8 flex justify-between">
+        <a href="/inventory" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">&larr; Back to
+            Inventory</a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Configuration Form -->
+        <div
+            class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700 theme-transition">
+            <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">⚙️ Setup BOM</h2>
+            <form method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Production
+                        Action</label>
+                    <select name="action_id" required
+                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2">
+                        {% for action in actions %}
+                        <option value="{{ action.id }}">{{ action.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Component to
+                        Consume</label>
+                    <select name="component_id" required
+                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2">
+                        {% for comp in components %}
+                        <option value="{{ comp.id }}">{{ comp.sku }} - {{ comp.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity per
+                        Unit</label>
+                    <input type="number" step="0.01" name="quantity" required min="0.01" placeholder="e.g. 1 or 0.5"
+                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2">
+                </div>
+
+                <button type="submit"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded transition">
+                    Link Component
+                </button>
+            </form>
+        </div>
+
+        <!-- Existing BOMs List -->
+        <div
+            class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700 theme-transition">
+            <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">📋 Active Configurations</h2>
+
+            {% if boms %}
+            <div class="space-y-4 overflow-y-auto max-h-[500px]">
+                {% for bom in boms %}
+                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded border border-gray-200 dark:border-gray-600">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="font-bold text-gray-800 dark:text-gray-200">{{ bom.action.name }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Consumes:</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-lg font-bold text-indigo-600 dark:text-indigo-400">{{ bom.quantity
+                                }}</span> <span class="text-xs">{{ bom.component.unit }}</span>
+                        </div>
+                    </div>
+                    <div
+                        class="mt-1 text-sm font-medium text-gray-700 dark:text-gray-300 border-t border-gray-200 dark:border-gray-600 pt-2 flex items-center gap-2">
+                        📦 {{ bom.component.name }} <span class="text-xs text-gray-400">({{ bom.component.sku }})</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500 dark:text-gray-400 italic">No connections defined yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

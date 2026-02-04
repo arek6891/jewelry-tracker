@@ -88,6 +88,36 @@ class ProjectImage(db.Model):
     image_type = db.Column(db.String(20), default='qc') # 'template' or 'qc'
     tower_number = db.Column(db.String(50), nullable=True) # For QC images
 
+# --- Inventory Models ---
+class Component(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    sku = db.Column(db.String(50), unique=True, nullable=False)
+    current_stock = db.Column(db.Integer, default=0)
+    unit = db.Column(db.String(20), default='pcs')
+
+class BillOfMaterials(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    action_id = db.Column(db.Integer, db.ForeignKey('action.id'), nullable=False)
+    component_id = db.Column(db.Integer, db.ForeignKey('component.id'), nullable=False)
+    quantity = db.Column(db.Float, nullable=False) # Quantity per 1 unit of action
+    
+    component = db.relationship('Component', backref='boms')
+    action = db.relationship('Action', backref='boms')
+
+class StockMovement(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    component_id = db.Column(db.Integer, db.ForeignKey('component.id'), nullable=False)
+    change_amount = db.Column(db.Integer, nullable=False)
+    movement_type = db.Column(db.String(20), nullable=False) # 'import', 'production', 'correction'
+    reference_id = db.Column(db.String(50), nullable=True)
+    description = db.Column(db.String(200), nullable=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Who made the change
+    
+    component = db.relationship('Component', backref='movements')
+    user = db.relationship('User', backref='movements')
+
 class BenchmarkConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     target_men = db.Column(db.Float, default=50.0)
@@ -313,8 +343,29 @@ def new_log():
             target_achieved=False # Logic to determine this can be added later
         )
         db.session.add(log)
+        db.session.flush() # Get ID for reference
+
+        # Inventory Deduction Logic
+        action_boms = BillOfMaterials.query.filter_by(action_id=int(action_id)).all()
+        for bom in action_boms:
+            qty_needed = int(bom.quantity * quantity) # Assuming integer pieces
+            if qty_needed > 0:
+                comp = Component.query.get(bom.component_id)
+                if comp:
+                    comp.current_stock -= qty_needed
+                    
+                    move = StockMovement(
+                        component_id=comp.id,
+                        change_amount=-qty_needed,
+                        movement_type='production',
+                        reference_id=f"LOG-{log.id}",
+                        user_id=current_user.id,
+                        description=f"Used in {log.quantity}x {log.action.name}"
+                    )
+                    db.session.add(move)
+
         db.session.commit()
-        flash('Log entry added successfully!')
+        flash('Log entry added successfully!' + (' (Stock updated)' if action_boms else ''))
         return redirect(url_for('dashboard'))
         
     actions = Action.query.all()
@@ -450,6 +501,7 @@ def get_tv_data():
         'projects': projects_data
     })
 
+@app.route('/calendar', methods=['GET', 'POST'])
 @login_required
 def calendar_view():
     if request.method == 'POST':
@@ -499,8 +551,7 @@ def calendar_view():
         
     return render_template('calendar.html', days=days_data)
 
-        
-    return render_template('calendar.html', days=days_data)
+
 
 @app.route('/projects/new', methods=['GET', 'POST'])
 @login_required
@@ -780,6 +831,183 @@ def admin_benchmarks():
                           actual_men=actual_men, 
                           actual_women=actual_women)
 
+# --- Inventory Routes ---
+@app.route('/inventory', methods=['GET'])
+@login_required
+def inventory_list():
+    components = Component.query.order_by(Component.name).all()
+    
+    # Fetch recent history
+    history = StockMovement.query.order_by(StockMovement.timestamp.desc()).limit(50).all()
+    
+    return render_template('inventory/list.html', components=components, history=history)
+
+@app.route('/inventory/import', methods=['GET', 'POST'])
+@login_required
+def inventory_import():
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+            
+        file = request.files['file']
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+            
+        if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
+            try:
+                # Read Excel
+                df = pd.read_excel(file)
+                
+                # Expected columns: SKU, Quantity, Name (optional)
+                # Case insensitive column check
+                df.columns = [c.lower() for c in df.columns]
+                
+                if 'sku' not in df.columns or 'quantity' not in df.columns:
+                    flash('Error: Excel must contain columns "SKU" and "Quantity"')
+                    return redirect(request.url)
+                    
+                count_updated = 0
+                count_created = 0
+                
+                for _, row in df.iterrows():
+                    sku = str(row['sku']).strip()
+                    qty = int(row['quantity'] if pd.notna(row['quantity']) else 0)
+                    name = str(row['name']).strip() if 'name' in df.columns and pd.notna(row['name']) else f"Component {sku}"
+                    
+                    if not sku:
+                        continue
+                        
+                    comp = Component.query.filter_by(sku=sku).first()
+                    if comp:
+                        # Update existing
+                        comp.current_stock += qty
+                        count_updated += 1
+                        
+                        # Log movement
+                        move = StockMovement(
+                            component_id=comp.id,
+                            change_amount=qty,
+                            movement_type='import',
+                            reference_id=f"BATCH-{datetime.utcnow().strftime('%Y%m%d%H%M')}",
+                            user_id=current_user.id,
+                            description=f"Import via Excel: {file.filename}"
+                        )
+                        db.session.add(move)
+                        
+                    else:
+                        # Create new
+                        comp = Component(name=name, sku=sku, current_stock=qty)
+                        db.session.add(comp)
+                        db.session.flush() # Get ID
+                        
+                        count_created += 1
+                        
+                        # Log movement
+                        move = StockMovement(
+                            component_id=comp.id,
+                            change_amount=qty,
+                            movement_type='import_new',
+                            reference_id=f"BATCH-{datetime.utcnow().strftime('%Y%m%d%H%M')}",
+                            user_id=current_user.id,
+                            description=f"Initial Import: {file.filename}"
+                        )
+                        db.session.add(move)
+                        
+                db.session.commit()
+                flash(f"Import successful: {count_created} created, {count_updated} updated.")
+                return redirect(url_for('inventory_list'))
+                
+            except Exception as e:
+                print(f"IMPORT ERROR: {str(e)}") # Debug info
+                import traceback
+                traceback.print_exc()
+                flash(f"Import failed: {str(e)}")
+                return redirect(request.url)
+        else:
+             flash('Invalid file type. Please upload Excel.')
+             
+    return render_template('inventory/import.html')
+
+@app.route('/inventory/bom', methods=['GET', 'POST'])
+@login_required
+def inventory_bom():
+    if request.method == 'POST':
+        action_id = request.form.get('action_id')
+        component_id = request.form.get('component_id')
+        quantity = float(request.form.get('quantity', 0))
+        
+        if quantity > 0:
+            # Check if exists to avoid duplicates (or update)
+            bom = BillOfMaterials.query.filter_by(action_id=action_id, component_id=component_id).first()
+            if bom:
+                bom.quantity = quantity
+            else:
+                bom = BillOfMaterials(action_id=action_id, component_id=component_id, quantity=quantity)
+                db.session.add(bom)
+            db.session.commit()
+            flash('BOM updated.')
+        else:
+            # If 0, maybe delete? For now just flash error
+            flash('Quantity must be > 0')
+            
+        return redirect(url_for('inventory_bom'))
+
+    actions = Action.query.all()
+    components = Component.query.order_by(Component.name).all()
+    boms = BillOfMaterials.query.all()
+    
+    return render_template('inventory/bom.html', actions=actions, components=components, boms=boms)
+
+
+    return render_template('inventory/bom.html', actions=actions, components=components, boms=boms)
+
+@app.route('/inventory/correction', methods=['POST'])
+@login_required
+def inventory_correction():
+    if current_user.role != 'admin':
+        flash('Access denied. Admin only.')
+        return redirect(url_for('inventory_list'))
+        
+    sku_input = request.form.get('sku_input')
+    change_amount = int(request.form.get('change_amount', 0))
+    reason = request.form.get('reason')
+    
+    if not sku_input:
+        flash('SKU is required.')
+        return redirect(url_for('inventory_list'))
+
+    # Find component by SKU (case insensitive)
+    comp = Component.query.filter(Component.sku.ilike(sku_input.strip())).first()
+    
+    if not comp:
+        flash(f'Component with SKU "{sku_input}" not found.')
+        return redirect(url_for('inventory_list'))
+    
+    if change_amount == 0:
+        flash('Change amount cannot be zero.')
+        return redirect(url_for('inventory_list'))
+        
+    if not reason:
+        flash('Reason is required for manual corrections.')
+        return redirect(url_for('inventory_list'))
+    comp.current_stock += change_amount
+    
+    move = StockMovement(
+        component_id=comp.id,
+        change_amount=change_amount,
+        movement_type='correction',
+        reference_id='MANUAL',
+        description=reason,
+        user_id=current_user.id
+    )
+    db.session.add(move)
+    db.session.commit()
+    
+    flash(f"Stock corrected for {comp.sku}. New stock: {comp.current_stock}")
+    return redirect(url_for('inventory_list'))
+
 # --- Initialization ---
 def init_db():
     if not os.path.exists('jewelry.db') and not os.path.exists('instance/jewelry.db'):
@@ -849,6 +1077,27 @@ def init_db():
              print("Migrating: Adding qa_enabled to benchmark_config")
              cursor.execute("ALTER TABLE benchmark_config ADD COLUMN qa_enabled BOOLEAN DEFAULT 0")
              conn.commit()
+
+        # Check Inventory Tables
+        try:
+             cursor.execute("SELECT * FROM component LIMIT 1")
+        except:
+             print("Migrating database: adding Inventory tables...")
+             # Re-run create_all to create missing tables (Component, BOM, StockMovement)
+             db.create_all()
+
+
+        try:
+             cursor.execute("SELECT * FROM stock_movement LIMIT 1")
+             cursor.execute("PRAGMA table_info(stock_movement)")
+             cols = [info[1] for info in cursor.fetchall()]
+             if 'user_id' not in cols:
+                 print("Migrating: Adding user_id/description to stock_movement")
+                 cursor.execute("ALTER TABLE stock_movement ADD COLUMN user_id INTEGER")
+                 cursor.execute("ALTER TABLE stock_movement ADD COLUMN description TEXT")
+                 conn.commit()
+        except:
+             pass
 
         if not BenchmarkConfig.query.first():
             default_benchmark = BenchmarkConfig(target_men=55.0, target_women=45.0)

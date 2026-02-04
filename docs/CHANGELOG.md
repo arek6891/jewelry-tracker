@@ -1,5 +1,22 @@
 # Dziennik Zmian (Changelog)
 
+## [1.1.0] - 2026-02-04
+### Added
+- **Parts Stock (Inventory) Module**:
+    - Complete material tracking system.
+    - Component management (SKU, Name, Unit).
+    - Excel Import (Add-only mode with user tracking).
+    - Bill of Materials (BOM) configuration.
+    - Automatic stock deduction on production log.
+    - Admin manual correction with reason logging.
+    - History log of all stock movements.
+- **Dark Mode**: Full implementation with toggle and persistence.
+- **Calendar**: Fixed 404 error on calendar route.
+
+### Changed
+- UI updated to support Dark Mode across all templates.
+- Navigation bar updated with Parts Stock link.
+
 ## [1.0.0] - 2026-01-30
 ### Dodano
 -   Inicjalizacja projektu w technologii Python (Flask) [Zastępstwo za Node.js].

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="light">
 
 <head>
     <meta charset="UTF-8">
@@ -7,26 +7,57 @@
     <title>Jewelry Tower Tracker</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {}
+            }
+        }
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .theme-transition {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
     </style>
+    <script>
+        // Check for saved theme preference or default to light
+        if (localStorage.getItem('theme') === 'dark' ||
+            (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.remove('light');
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+        }
+    </script>
 </head>
 
-<body class="bg-gray-100 text-gray-800">
-    <nav class="bg-indigo-600 text-white shadow-lg">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 theme-transition">
+    <nav class="bg-indigo-600 dark:bg-gray-800 text-white shadow-lg theme-transition">
         <div class="container mx-auto px-4 py-3 flex justify-between items-center">
             <a href="/" class="text-xl font-bold tracking-tight">💎 Jewelry Tracker</a>
-            <div>
+            <div class="flex items-center">
                 {% if current_user.is_authenticated %}
                 <a href="/tv" target="_blank"
                     class="mr-4 bg-purple-500 hover:bg-purple-600 px-3 py-1 rounded transition font-bold text-xs uppercase tracking-wider">📺
                     TV Mode</a>
                 <span class="mr-4">Welcome, {{ current_user.username }}</span>
-                <a href="/logout" class="bg-indigo-700 hover:bg-indigo-800 px-3 py-1 rounded transition">Logout</a>
+                <a href="/logout"
+                    class="bg-indigo-700 dark:bg-gray-700 hover:bg-indigo-800 dark:hover:bg-gray-600 px-3 py-1 rounded transition mr-4">Logout</a>
                 {% endif %}
+                <!-- Dark Mode Toggle -->
+                <button id="themeToggle"
+                    class="p-2 rounded-full bg-indigo-700 dark:bg-gray-700 hover:bg-indigo-800 dark:hover:bg-gray-600 transition"
+                    title="Toggle Dark Mode">
+                    <span id="themeIcon" class="text-lg">🌙</span>
+                </button>
             </div>
         </div>
     </nav>
@@ -36,7 +67,8 @@
         {% if messages %}
         <div class="mb-4">
             {% for message in messages %}
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <div class="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded relative theme-transition"
+                role="alert">
                 <span class="block sm:inline">{{ message }}</span>
             </div>
             {% endfor %}
@@ -47,9 +79,39 @@
         {% block content %}{% endblock %}
     </div>
 
-    <footer class="text-center py-6 text-gray-500 text-sm">
+    <footer class="text-center py-6 text-gray-500 dark:text-gray-400 text-sm theme-transition">
         &copy; 2026 Jewelry Tower Tracker by Arkadiusz Sobczyk
     </footer>
+
+    <script>
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+
+        function updateIcon() {
+            if (document.documentElement.classList.contains('dark')) {
+                themeIcon.textContent = '☀️';
+            } else {
+                themeIcon.textContent = '🌙';
+            }
+        }
+
+        // Initial icon update
+        updateIcon();
+
+        themeToggle.addEventListener('click', function () {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.classList.add('light');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.remove('light');
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+            updateIcon();
+        });
+    </script>
 </body>
 
 </html>

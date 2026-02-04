@@ -3,49 +3,53 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="flex justify-between items-center mb-8">
-        <h1 class="text-3xl font-bold text-gray-800">Productivity Benchmarks</h1>
-        <a href="/dashboard" class="text-indigo-600 hover:text-indigo-800">Back to Dashboard</a>
+        <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Productivity Benchmarks</h1>
+        <a href="/dashboard"
+            class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">Back to
+            Dashboard</a>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
         <!-- Target Settings (Input) -->
-        <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Set Targets 🎯</h2>
-            <p class="text-gray-600 text-sm mb-6">Define the expected output per person per day. This is used for
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-blue-500 theme-transition">
+            <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Set Targets 🎯</h2>
+            <p class="text-gray-600 dark:text-gray-400 text-sm mb-6">Define the expected output per person per day. This
+                is used for
                 planning and alerts.</p>
 
             <form method="POST">
                 <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="target_men">
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="target_men">
                         Target: Men (Towers/Day)
                     </label>
                     <input
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        class="shadow appearance-none border dark:border-gray-600 rounded w-full py-2 px-3 text-gray-700 dark:text-gray-200 dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                         id="target_men" name="target_men" type="number" step="0.1" value="{{ config.target_men }}">
                 </div>
 
                 <div class="mb-6">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="target_women">
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="target_women">
                         Target: Women (Towers/Day)
                     </label>
                     <input
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        class="shadow appearance-none border dark:border-gray-600 rounded w-full py-2 px-3 text-gray-700 dark:text-gray-200 dark:bg-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                         id="target_women" name="target_women" type="number" step="0.1"
                         value="{{ config.target_women }}">
                 </div>
 
-                <hr class="my-6 border-gray-200">
-                <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Global Features</h3>
+                <hr class="my-6 border-gray-200 dark:border-gray-700">
+                <h3 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Global
+                    Features</h3>
 
                 <div class="mb-6 flex items-center">
                     <input type="checkbox" id="qa_enabled" name="qa_enabled"
-                        class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" {% if
-                        config.qa_enabled %}checked{% endif %}>
-                    <label class="ml-2 block text-gray-700 text-sm font-bold" for="qa_enabled">
+                        class="w-4 h-4 text-blue-600 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                        {% if config.qa_enabled %}checked{% endif %}>
+                    <label class="ml-2 block text-gray-700 dark:text-gray-300 text-sm font-bold" for="qa_enabled">
                         Enable Quality Assurance (QA) Workflow
                     </label>
                 </div>
-                <p class="text-gray-500 text-xs mb-6 -mt-4 ml-6">
+                <p class="text-gray-500 dark:text-gray-400 text-xs mb-6 -mt-4 ml-6">
                     If enabled, uploaded photos will require approval (Pending -> Approved/Rejected).
                 </p>
 
@@ -56,37 +60,40 @@
         </div>
 
         <!-- Actuals (Calculated) -->
-        <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Actual Reality 📊</h2>
-            <p class="text-gray-600 text-sm mb-6">Calculated from historical data using mathematical regression (Least
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-green-500 theme-transition">
+            <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Actual Reality 📊</h2>
+            <p class="text-gray-600 dark:text-gray-400 text-sm mb-6">Calculated from historical data using mathematical
+                regression (Least
                 Squares).</p>
 
             <div class="space-y-6">
                 <div>
-                    <h3 class="text-gray-500 text-xs uppercase font-bold">Men (Actual Avg)</h3>
+                    <h3 class="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold">Men (Actual Avg)</h3>
                     <div class="flex items-end">
-                        <span class="text-4xl font-bold text-gray-900">{{ actual_men if actual_men is not none else
+                        <span class="text-4xl font-bold text-gray-900 dark:text-gray-100">{{ actual_men if actual_men is
+                            not none else
                             'N/A' }}</span>
-                        <span class="text-gray-500 ml-2 mb-1">Towers/Day</span>
+                        <span class="text-gray-500 dark:text-gray-400 ml-2 mb-1">Towers/Day</span>
                     </div>
                     {% if actual_men is not none %}
                     <div
-                        class="text-xs mt-1 {{ 'text-green-600' if actual_men >= config.target_men else 'text-red-500' }}">
+                        class="text-xs mt-1 {{ 'text-green-600 dark:text-green-400' if actual_men >= config.target_men else 'text-red-500 dark:text-red-400' }}">
                         {{ ((actual_men - config.target_men) / config.target_men * 100)|round|int }}% vs Target
                     </div>
                     {% endif %}
                 </div>
 
-                <div class="border-t pt-4">
-                    <h3 class="text-gray-500 text-xs uppercase font-bold">Women (Actual Avg)</h3>
+                <div class="border-t dark:border-gray-700 pt-4">
+                    <h3 class="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold">Women (Actual Avg)</h3>
                     <div class="flex items-end">
-                        <span class="text-4xl font-bold text-gray-900">{{ actual_women if actual_women is not none else
+                        <span class="text-4xl font-bold text-gray-900 dark:text-gray-100">{{ actual_women if
+                            actual_women is not none else
                             'N/A' }}</span>
-                        <span class="text-gray-500 ml-2 mb-1">Towers/Day</span>
+                        <span class="text-gray-500 dark:text-gray-400 ml-2 mb-1">Towers/Day</span>
                     </div>
                     {% if actual_women is not none %}
                     <div
-                        class="text-xs mt-1 {{ 'text-green-600' if actual_women >= config.target_women else 'text-red-500' }}">
+                        class="text-xs mt-1 {{ 'text-green-600 dark:text-green-400' if actual_women >= config.target_women else 'text-red-500 dark:text-red-400' }}">
                         {{ ((actual_women - config.target_women) / config.target_women * 100)|round|int }}% vs Target
                     </div>
                     {% endif %}
