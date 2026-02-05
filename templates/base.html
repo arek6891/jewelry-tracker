@@ -45,12 +45,19 @@
             <a href="/" class="text-xl font-bold tracking-tight">💎 Jewelry Tracker</a>
             <div class="flex items-center">
                 {% if current_user.is_authenticated %}
+                {% if current_user.role == 'admin' %}
+                <a href="{{ url_for('admin_benchmarks') }}"
+                    class="mr-4 hover:text-indigo-200 dark:hover:text-gray-300 transition font-bold">
+                    ⚙️ {{ _('admin.panel', 'Admin') }}
+                </a>
+                {% endif %}
                 <a href="/tv" target="_blank"
                     class="mr-4 bg-purple-500 hover:bg-purple-600 px-3 py-1 rounded transition font-bold text-xs uppercase tracking-wider">📺
                     TV Mode</a>
-                <span class="mr-4">Welcome, {{ current_user.username }}</span>
+                <span class="mr-4">{{ _('common.welcome', 'Welcome') }}, {{ current_user.username }}</span>
                 <a href="/logout"
-                    class="bg-indigo-700 dark:bg-gray-700 hover:bg-indigo-800 dark:hover:bg-gray-600 px-3 py-1 rounded transition mr-4">Logout</a>
+                    class="bg-indigo-700 dark:bg-gray-700 hover:bg-indigo-800 dark:hover:bg-gray-600 px-3 py-1 rounded transition mr-4">{{
+                    _('common.logout', 'Logout') }}</a>
                 {% endif %}
                 <!-- Dark Mode Toggle -->
                 <button id="themeToggle"
@@ -67,7 +74,7 @@
         {% if messages %}
         <div class="mb-4">
             {% for message in messages %}
-            <div class="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded relative theme-transition"
+            <div class="bg-blue-100 dark:bg-blue-900 border border-blue-400 dark:border-blue-700 text-blue-700 dark:text-blue-300 px-4 py-3 rounded relative theme-transition mb-2"
                 role="alert">
                 <span class="block sm:inline">{{ message }}</span>
             </div>
@@ -80,7 +87,7 @@
     </div>
 
     <footer class="text-center py-6 text-gray-500 dark:text-gray-400 text-sm theme-transition">
-        &copy; 2026 Jewelry Tower Tracker by Arkadiusz Sobczyk
+        &copy; 2026 Jewelry Tower Tracker by Arkadiusz Sobczyk and Adam Reliszka
     </footer>
 
     <script>

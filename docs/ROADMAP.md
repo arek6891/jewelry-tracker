@@ -92,8 +92,8 @@ Specjalny widok na duży ekran (telewizor) umieszczony na hali produkcyjnej.
 ## 🔒 Bezpieczeństwo
 
 ### Zarządzanie Użytkownikami
-- [ ] Role użytkowników (admin/supervisor/worker)
-- [ ] Zarządzanie uprawnieniami per funkcja
+- [x] Role użytkowników (admin/supervisor/worker) ✅
+- [x] Zarządzanie uprawnieniami per funkcja ✅
 - [ ] Ograniczenie dostępu do danych wg zespołu
 
 ### Audyt i Zgodność
@@ -108,7 +108,15 @@ Specjalny widok na duży ekran (telewizor) umieszczony na hali produkcyjnej.
 
 ---
 
+## 🌍 Lokalizacja i Języki (Completed 1.2.0)
+- [x] Dynamiczny system tłumaczeń (DB) ✅
+- [x] Wybór języka (PL, EN, DE, UK) ✅
+- [x] Panel zarządzania tłumaczeniami ✅
+
+---
+
 ## ✅ Rozbudowa Quality Check (Moduł QC)
+
 
 ### Inspekcje
 - [ ] Szablony inspekcji per typ produktu

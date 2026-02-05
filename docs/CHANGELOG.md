@@ -1,6 +1,28 @@
 # Dziennik Zmian (Changelog)
 
-## [1.1.0] - 2026-02-04
+## [1.2.0] - 2026-02-05
+### Added
+-   **Dynamic Translations System**:
+    -   Database support for multiple languages (`Language`, `TranslationKey`, `Translation` tables).
+    -   Admin Panel for managing translations (`/admin/translations`).
+    -   Key initialization and real-time editing.
+-   **User Management**:
+    -   Admin Panel for managing users (`/admin/users`).
+    -   Ability to add/edit/delete users and assign roles/languages.
+    -   Language selection on Login screen.
+-   **Admin Navigation**:
+    -   Consolidated "Admin Panel" with tabs (Benchmarks, Users, Translations).
+    -   Improved navigation bar for Admin role.
+
+### Changed
+-   **UI Improvements**:
+    -   Updated footer copyright to include Adam Reliszka.
+    -   Improved flash message styling (neutral blue instead of alert red).
+-   **Backend**:
+    -   Refactored `init_db` to handle new schema migrations.
+    -   Added `User.language` preference field.
+
+
 ### Added
 - **Parts Stock (Inventory) Module**:
     - Complete material tracking system.

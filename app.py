@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from datetime import datetime
@@ -28,6 +28,55 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(100), nullable=False) # In production use hashing
     role = db.Column(db.String(50), default='user') # admin, user
+    language = db.Column(db.String(10), default='pl') # Default language Polish
+
+class Language(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(10), unique=True, nullable=False) # pl, en, uk, de
+    name = db.Column(db.String(50), nullable=False) # Polski, English...
+
+class TranslationKey(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(100), unique=True, nullable=False) # e.g., 'login.username'
+    description = db.Column(db.String(200)) # Description for admin what this key is for
+
+class Translation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    language_id = db.Column(db.Integer, db.ForeignKey('language.id'), nullable=False)
+    key_id = db.Column(db.Integer, db.ForeignKey('translation_key.id'), nullable=False)
+    value = db.Column(db.Text, nullable=False)
+
+    language = db.relationship('Language', backref=db.backref('translations', lazy=True))
+    key = db.relationship('TranslationKey', backref=db.backref('translations', lazy=True))
+
+# --- Translation Helper ---
+def get_translation(key_name, default=None, lang_code=None):
+    if not default:
+        default = key_name
+
+    if not lang_code:
+        if current_user.is_authenticated and current_user.language:
+            lang_code = current_user.language
+        elif 'lang' in session:
+            lang_code = session['lang']
+        else:
+            lang_code = 'pl' # Default
+            
+    # Clean fallback logic
+    lang = Language.query.filter_by(code=lang_code).first()
+    if not lang:
+        lang = Language.query.filter_by(code='pl').first()
+        
+    t_key = TranslationKey.query.filter_by(key=key_name).first()
+    if not t_key:
+        return default
+        
+    translation = Translation.query.filter_by(language_id=lang.id, key_id=t_key.id).first()
+    return translation.value if translation else default
+
+@app.context_processor
+def inject_translation():
+    return dict(_=get_translation)
 
 class Action(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -155,6 +204,198 @@ def login():
             flash('Invalid username or password')
             
     return render_template('login.html')
+
+@app.route('/set_language')
+def set_language():
+    code = request.args.get('lang')
+    if code:
+        session['lang'] = code
+        if current_user.is_authenticated:
+            current_user.language = code
+            db.session.commit()
+    return redirect(request.referrer or url_for('login'))
+
+@app.before_request
+def before_request():
+    # Handle lang param in any request to switch language
+    if 'lang' in request.args:
+        session['lang'] = request.args.get('lang')
+        if current_user.is_authenticated:
+            current_user.language = session['lang']
+            db.session.commit()
+
+# --- Admin Routes ---
+
+@app.route('/admin/users', methods=['GET', 'POST'])
+@login_required
+def manage_users():
+    if current_user.role != 'admin':
+        flash(_('common.access_denied', 'Access denied.'))
+        return redirect(url_for('dashboard'))
+        
+    if request.method == 'POST':
+        user_id = request.form.get('user_id')
+        username = request.form.get('username')
+        password = request.form.get('password')
+        role = request.form.get('role')
+        language = request.form.get('language')
+        
+        if user_id:
+            # Edit existing
+            user = User.query.get(user_id)
+            if user:
+                user.username = username
+                if password:
+                    user.password = password # Hash in production!
+                user.role = role
+                user.language = language
+                db.session.commit()
+                flash(_('admin.user_updated', 'User updated successfully.'))
+        else:
+            # Create new
+            if User.query.filter_by(username=username).first():
+                flash(_('admin.username_exists', 'Username already exists.'))
+            else:
+                user = User(username=username, password=password, role=role, language=language)
+                db.session.add(user)
+                db.session.commit()
+                flash(_('admin.user_created', 'User created successfully.'))
+                
+        return redirect(url_for('manage_users'))
+        
+    users = User.query.all()
+    languages = Language.query.all()
+    return render_template('admin/users.html', users=users, languages=languages)
+
+@app.route('/admin/users/delete/<int:user_id>', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    if current_user.role != 'admin':
+        abort(403)
+        
+    user = User.query.get_or_404(user_id)
+    if user.username == 'admin':
+        flash(_('admin.cannot_delete_admin', 'Cannot delete main admin.'))
+    else:
+        db.session.delete(user)
+        db.session.commit()
+        flash(_('admin.user_deleted', 'User deleted.'))
+        
+    return redirect(url_for('manage_users'))
+
+@app.route('/admin/translations')
+@login_required
+def admin_translations():
+    if current_user.role != 'admin':
+        flash(_('common.access_denied', 'Access denied.'))
+        return redirect(url_for('dashboard'))
+        
+    languages = Language.query.all()
+    keys = TranslationKey.query.all()
+    
+    # Organize data for matrix view
+    # data = [ {key: KeyObj, translations: {lang_id: value}} ]
+    translation_data = []
+    
+    for k in keys:
+        t_map = {}
+        qt = Translation.query.filter_by(key_id=k.id).all()
+        for t in qt:
+            t_map[t.language_id] = t.value
+            
+        translation_data.append({
+            'key': k,
+            'translations': t_map
+        })
+        
+    return render_template('admin/translations.html', languages=languages, translation_data=translation_data)
+
+@app.route('/admin/translations/add_key', methods=['POST'])
+@login_required
+def add_translation_key():
+    if current_user.role != 'admin':
+        abort(403)
+        
+    key_name = request.form.get('key')
+    description = request.form.get('description')
+    
+    if key_name:
+        if not TranslationKey.query.filter_by(key=key_name).first():
+            db.session.add(TranslationKey(key=key_name, description=description))
+            db.session.commit()
+            flash('Key added.')
+        else:
+            flash('Key already exists.')
+            
+    return redirect(url_for('admin_translations'))
+
+@app.route('/admin/translations/init', methods=['POST'])
+@login_required
+def init_keys():
+    if current_user.role != 'admin':
+        abort(403)
+        
+    # Basic default keys to start with
+    defaults = {
+        'login.username': 'Username',
+        'login.password': 'Password',
+        'login.btn_submit': 'Sign In',
+        'login.language': 'Language',
+        'admin.users_title': 'Manage Users',
+        'admin.add_user': 'Add User',
+        'admin.role': 'Role',
+        'admin.language': 'Language',
+        'common.actions': 'Actions',
+        'common.edit': 'Edit',
+        'common.delete': 'Delete',
+        'common.save': 'Save',
+        'common.cancel': 'Cancel',
+        'admin.translations_title': 'Manage Translations',
+        'admin.key': 'Key',
+        'admin.description': 'Description',
+        'admin.panel': 'Admin Panel',
+        'admin.benchmarks': 'Benchmarks',
+        'admin.users_nav': 'Users',
+        'admin.translations_nav': 'Translations',
+        'admin.init_keys': 'Initialize Keys',
+        'common.welcome': 'Welcome',
+        'common.logout': 'Logout'
+    }
+    
+    count = 0
+    for k, v in defaults.items():
+        if not TranslationKey.query.filter_by(key=k).first():
+            db.session.add(TranslationKey(key=k, description=f"Default: {v}"))
+            count += 1
+            
+    db.session.commit()
+    flash(f'Initialized {count} keys.')
+    return redirect(url_for('admin_translations'))
+
+@app.route('/api/translations/update', methods=['POST'])
+@login_required
+def update_translation_api():
+    if current_user.role != 'admin':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+    data = request.json
+    lang_id = data.get('language_id')
+    key_id = data.get('key_id')
+    value = data.get('value')
+    
+    if not all([lang_id, key_id]):
+        return jsonify({'success': False, 'message': 'Missing data'}), 400
+        
+    # Find or create
+    translation = Translation.query.filter_by(language_id=lang_id, key_id=key_id).first()
+    if translation:
+        translation.value = value
+    else:
+        translation = Translation(language_id=lang_id, key_id=key_id, value=value)
+        db.session.add(translation)
+        
+    db.session.commit()
+    return jsonify({'success': True})
 
 @app.route('/logout')
 @login_required
@@ -1110,9 +1351,25 @@ def init_db():
         print(f"Migration check failed (minor if db is new): {e}")
         
     with app.app_context():
+        # Check User Language Column via raw SQL (since we might be outside of migration tools)
+        try:
+             # Connect manually to check schema
+            db_file = 'instance/jewelry.db' if os.path.exists('instance/jewelry.db') else 'jewelry.db'
+            conn_u = sqlite3.connect(db_file)
+            cursor_u = conn_u.cursor()
+            cursor_u.execute("PRAGMA table_info(user)")
+            cols = [info[1] for info in cursor_u.fetchall()]
+            if 'language' not in cols:
+                print("Migrating: Adding language to user")
+                cursor_u.execute("ALTER TABLE user ADD COLUMN language TEXT DEFAULT 'pl'")
+                conn_u.commit()
+            conn_u.close()
+        except Exception as e:
+            print(f"User language migration check failed: {e}")
+
         # Create default admin if not exists
         if not User.query.filter_by(username='admin').first():
-            admin = User(username='admin', password='logwin', role='admin')
+            admin = User(username='admin', password='logwin', role='admin', language='pl')
             db.session.add(admin)
             
             # Add some default actions
@@ -1123,6 +1380,20 @@ def init_db():
             
             db.session.commit()
             print("Default admin and actions created.")
+            
+        # Initialize Default Languages
+        if not Language.query.first():
+            languages = [
+                {'code': 'pl', 'name': 'Polski'},
+                {'code': 'en', 'name': 'English'},
+                {'code': 'de', 'name': 'Deutsch'},
+                {'code': 'uk', 'name': 'Українська'}
+            ]
+            for lang_data in languages:
+                if not Language.query.filter_by(code=lang_data['code']).first():
+                    db.session.add(Language(code=lang_data['code'], name=lang_data['name']))
+            db.session.commit()
+            print("Initialized default languages.")
 
 if __name__ == '__main__':
     with app.app_context():

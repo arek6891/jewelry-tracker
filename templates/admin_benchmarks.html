@@ -2,11 +2,27 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="flex justify-between items-center mb-8">
-        <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Productivity Benchmarks</h1>
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">{{ _('admin.panel', 'Admin Panel') }}</h1>
         <a href="/dashboard"
             class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">Back to
             Dashboard</a>
+    </div>
+
+    <!-- Admin Navigation -->
+    <div class="flex space-x-2 mb-8 border-b border-gray-200 dark:border-gray-700">
+        <a href="{{ url_for('admin_benchmarks') }}"
+            class="py-2 px-4 border-b-2 border-indigo-500 text-indigo-600 font-bold dark:text-indigo-400">
+            {{ _('admin.benchmarks', 'Benchmarks') }}
+        </a>
+        <a href="{{ url_for('manage_users') }}"
+            class="py-2 px-4 border-b-2 border-transparent text-gray-500 hover:text-indigo-600 font-medium transition dark:text-gray-400 dark:hover:text-indigo-300">
+            {{ _('admin.users_nav', 'Users') }}
+        </a>
+        <a href="{{ url_for('admin_translations') }}"
+            class="py-2 px-4 border-b-2 border-transparent text-gray-500 hover:text-indigo-600 font-medium transition dark:text-gray-400 dark:hover:text-indigo-300">
+            {{ _('admin.translations_nav', 'Translations') }}
+        </a>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
